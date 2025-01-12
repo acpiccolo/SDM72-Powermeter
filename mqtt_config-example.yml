@@ -1,5 +1,5 @@
 # MQTT configuration to the broker
-# Copy and modify this file to mqtt_config.yaml
+# Copy and modify this file to mqtt_config.yml
 
 # URL to the MQTT broker like: mqtt://localhost:1883
 url: mqtt://localhost:1883
