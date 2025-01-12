@@ -441,7 +441,7 @@ fn main() -> Result<()> {
             ensure_authorization(&mut d)?;
             d.reset_historical_data()
                 .with_context(|| "Cannot reset historical data")?;
-            println!("Historical data successfully resetted",);
+            println!("Historical data successfully reset",);
         }
     }
 

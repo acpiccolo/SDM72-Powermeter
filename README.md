@@ -12,8 +12,6 @@ The following hardware is required for this project:
 * One or more SDM72 energy meter.
 * One USB-RS485 converter.
 
-![SDM72 temperature collector](/images/SDM72.png)
-
 ### Data sheet SDM72 energy meter
 * maximum 100 Ampere
 * Two wire types: 3 phase with 4 wire or 1 phase with 2 wire

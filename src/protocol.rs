@@ -388,7 +388,7 @@ impl std::fmt::Display for Password {
 }
 
 /// Baud rate of the Modbus RTU protocol for the RS485 serial port.
-/// Suppored rates are: 1200, 2400, 4800, 9600, 19200
+/// Supported rates are: 1200, 2400, 4800, 9600, 19200
 ///
 /// Note: To set the value you need ['KPPA'](enum@KPPA).
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
