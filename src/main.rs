@@ -175,10 +175,7 @@ fn main() -> Result<()> {
         } => {
             trace!(
                 "Open RTU {} address {} baud rate {} parity and stop bits {}",
-                device,
-                address,
-                baud_rate,
-                parity_and_stop_bits
+                device, address, baud_rate, parity_and_stop_bits
             );
             delay = check_rtu_delay(delay, baud_rate);
             (
