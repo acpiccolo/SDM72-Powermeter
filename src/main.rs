@@ -2,70 +2,11 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use flexi_logger::{Logger, LoggerHandle};
 use log::*;
-use paho_mqtt as mqtt;
 use sdm72_lib::{protocol as proto, tokio_sync_client::SDM72};
-use serde::{Deserialize, Serialize};
 use std::{ops::Deref, panic, time::Duration};
 
 mod commandline;
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct MqttConfig {
-    url: String,
-    username: Option<String>,
-    password: Option<String>,
-    #[serde(default = "MqttConfig::default_repeats")]
-    repeats: u32,
-    #[serde(default = "MqttConfig::default_timeout", with = "humantime_serde")]
-    timeout: Duration,
-    #[serde(
-        default = "MqttConfig::default_keep_alive_interval",
-        with = "humantime_serde"
-    )]
-    keep_alive_interval: Duration,
-    #[serde(default = "MqttConfig::default_topic")]
-    topic: String,
-    #[serde(default = "MqttConfig::default_qos")]
-    qos: u8,
-}
-
-impl MqttConfig {
-    fn default_repeats() -> u32 {
-        1
-    }
-    fn default_timeout() -> Duration {
-        Duration::from_secs(5)
-    }
-    fn default_keep_alive_interval() -> Duration {
-        Duration::from_secs(20)
-    }
-    fn default_topic() -> String {
-        String::from("sdm72")
-    }
-    fn default_qos() -> u8 {
-        0
-    }
-    const DEFAULT_CONFIG_FILE: &str = "mqtt_config.yml";
-
-    fn load(file_name: &str) -> Result<Self> {
-        use std::{fs::File, path::Path};
-
-        let config_file_path = Path::new(file_name);
-        if !config_file_path.exists() {
-            anyhow::bail!(
-                "Cannot open config file '{}'",
-                config_file_path.to_string_lossy()
-            );
-        }
-        log::debug!("Loading config file from {:?}", &config_file_path);
-        let config_file = File::open(config_file_path)
-            .with_context(|| format!("Cannot open config file {:?}", config_file_path))?;
-        let config: Self = serde_yaml::from_reader(&config_file)
-            .with_context(|| format!("Cannot read config file {:?}", config_file_path))?;
-        drop(config_file);
-        Ok(config)
-    }
-}
+mod mqtt;
 
 fn logging_init(loglevel: LevelFilter) -> LoggerHandle {
     let log_handle = Logger::try_with_env_or_str(loglevel.as_str())
@@ -200,7 +141,7 @@ fn main() -> Result<()> {
 
     match command {
         commandline::Commands::Daemon { poll_iterval, mode } => match mode {
-            commandline::DaemonMode::Stdout => loop {
+            commandline::DaemonOutput::Console => loop {
                 let values = d
                     .read_all(&delay)
                     .with_context(|| "Cannot read all values")?;
@@ -211,125 +152,8 @@ fn main() -> Result<()> {
                 }
                 std::thread::sleep(delay.max(*poll_iterval));
             },
-            commandline::DaemonMode::Mqtt { config_file } => {
-                let mqtt_config = MqttConfig::load(config_file)?;
-
-                let mut cli = mqtt::Client::new(mqtt_config.url.clone())
-                    .with_context(|| "Error creating MQTT client")?;
-
-                // Use timeouts for sync calls.
-                cli.set_timeout(mqtt_config.timeout);
-
-                let mut conn_builder = mqtt::ConnectOptionsBuilder::new();
-                let mut conn_builder = conn_builder
-                    .keep_alive_interval(mqtt_config.keep_alive_interval)
-                    .clean_session(true);
-
-                if let Some(user_name) = mqtt_config.username {
-                    conn_builder = conn_builder.user_name(user_name)
-                }
-                if let Some(password) = mqtt_config.password {
-                    conn_builder = conn_builder.password(password)
-                }
-                let conn_ops = conn_builder.finalize();
-
-                // Connect and wait for it to complete or fail.
-                // The default connection uses MQTT v3.x
-                cli.connect(conn_ops)
-                    .with_context(|| "MQTT client unable to connect")?;
-
-                loop {
-                    let values = d
-                        .read_all(&delay)
-                        .with_context(|| "Cannot read all values")?;
-
-                    macro_rules! pub_msg {
-                        ($label:expr, $val:expr) => {
-                            cli.publish(mqtt::Message::new(
-                                format!("{}/{}", mqtt_config.topic, $label),
-                                $val.to_string(),
-                                mqtt_config.qos as i32,
-                            ))
-                            .with_context(|| "Cannot publish MQTT message")?;
-                        };
-                    }
-
-                    pub_msg!("L1_Voltage", values.l1_voltage);
-                    pub_msg!("L2_Voltage", values.l2_voltage);
-                    pub_msg!("L3_Voltage", values.l3_voltage);
-                    pub_msg!("L1_Current", values.l1_current);
-                    pub_msg!("L2_Current", values.l2_current);
-                    pub_msg!("L3_Current", values.l3_current);
-                    pub_msg!("L1_Power_Active", values.l1_power_active);
-                    pub_msg!("L2_Power_Active", values.l2_power_active);
-                    pub_msg!("L3_Power_Active", values.l3_power_active);
-                    pub_msg!("L1_Power_Apparent", values.l1_power_apparent);
-                    pub_msg!("L2_Power_Apparent", values.l2_power_apparent);
-                    pub_msg!("L3_Power_Apparent", values.l3_power_apparent);
-                    pub_msg!("L1_Power_Reactive", values.l1_power_reactive);
-                    pub_msg!("L2_Power_Reactive", values.l2_power_reactive);
-                    pub_msg!("L3_Power_Reactive", values.l3_power_reactive);
-                    pub_msg!("L1_Power_Factor", values.l1_power_factor);
-                    pub_msg!("L2_Power_Factor", values.l2_power_factor);
-                    pub_msg!("L3_Power_Factor", values.l3_power_factor);
-                    pub_msg!("L-N_average_Voltage", values.ln_average_voltage);
-                    pub_msg!("L-N_average_Current", values.ln_average_current);
-                    pub_msg!("Total_Line_Current", values.total_line_current);
-                    pub_msg!("Total_Power", values.total_power);
-                    pub_msg!("Total_Power_Apparent", values.total_power_apparent);
-                    pub_msg!("Total_Power_Reactive", values.total_power_reactive);
-                    pub_msg!("Total_Power_Factor", values.total_power_factor);
-                    pub_msg!("Frequency", values.frequency);
-                    pub_msg!("Import_Energy_Active", values.import_energy_active);
-                    pub_msg!("Export_Energy_Active", values.export_energy_active);
-
-                    pub_msg!("L1-L2_Voltage", values.l1l2_voltage);
-                    pub_msg!("L2-L3_Voltage", values.l2l3_voltage);
-                    pub_msg!("L3-L1_Voltage", values.l3l1_voltage);
-                    pub_msg!("L-L_average_Voltage", values.ll_average_voltage);
-                    pub_msg!("Neutral_Current", values.neutral_current);
-
-                    pub_msg!("Total_Energy_Active", values.total_energy_active);
-                    pub_msg!("Total_Energy_Reactive", values.total_energy_reactive);
-                    pub_msg!(
-                        "Resettable_Total_Energy_Active",
-                        values.resettable_total_energy_active
-                    );
-                    pub_msg!(
-                        "Resettable_Total_Energy_Reactive",
-                        values.resettable_total_energy_reactive
-                    );
-                    pub_msg!(
-                        "Resettable_Import_Energy_Active",
-                        values.resettable_import_energy_active
-                    );
-                    pub_msg!(
-                        "Resettable_Export_Energy_Active",
-                        values.resettable_export_energy_active
-                    );
-                    pub_msg!("Net_kWh_Import_-_Export", values.net_kwh);
-
-                    pub_msg!(
-                        "Import_Total_Energy_Active",
-                        values.import_total_energy_active
-                    );
-                    pub_msg!(
-                        "Export_Total_Energy_Active",
-                        values.export_total_energy_active
-                    );
-
-                    if !args.no_json {
-                        let payload = serde_json::to_string(&values)?;
-                        let msg = mqtt::Message::new(
-                            format!("{}/JSON", mqtt_config.topic),
-                            payload,
-                            mqtt_config.qos as i32,
-                        );
-                        cli.publish(msg)
-                            .with_context(|| "Cannot publish MQTT message")?;
-                    }
-                    std::thread::sleep(delay.max(*poll_iterval));
-                }
+            commandline::DaemonOutput::Mqtt { config_file } => {
+                mqtt::run_mqtt_daemon(&mut d, &delay, poll_iterval, config_file, args.no_json)?;
             }
         },
         commandline::Commands::ReadAll => {

@@ -33,6 +33,7 @@ bin-dependencies = [
     "dep:paho-mqtt",
     "dep:serde_json",
     "dep:serde_yaml",
+    "dep:rand",
     "dep:humantime-serde",
 ]
 tokio-rtu-sync = ["tokio-modbus/rtu-sync", "dep:tokio-serial", "dep:paste"]
@@ -59,5 +60,6 @@ paho-mqtt = { version = "0.13", optional = true }
 serde_json = { version = "1", optional = true }
 serde = { version = "1", optional = true }
 serde_yaml = { version = "0.9", optional = true }
+rand = { version = "0.9", optional = true }
 humantime-serde = { version = "1", optional = true }
 dialoguer = { version = "0.11", optional = true }

@@ -1,4 +1,4 @@
-use crate::MqttConfig;
+use crate::mqtt::MqttConfig;
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use sdm72_lib::protocol as proto;
@@ -69,34 +69,15 @@ pub enum Connection {
     },
 }
 
-#[derive(Subcommand, Debug, Clone, PartialEq, Default)]
-pub enum DaemonMode {
-    #[default]
-    /// Print values to stdout [default]
-    Stdout,
-    /// Send values to a MQTT Broker
+#[derive(Subcommand, Debug, Clone, PartialEq)]
+pub enum DaemonOutput {
+    /// Continuously read and print values to the standard output (console).
+    Console,
+    /// Continuously read and publish values to an MQTT Broker
     Mqtt {
         /// The configuration file for the MQTT broker
         #[arg(long, default_value_t = MqttConfig::DEFAULT_CONFIG_FILE.to_string())]
         config_file: String,
-        // /// URL to the MQTT broker like: mqtt://localhost:1883
-        // url: String,
-
-        // /// The user name for authentication with the broker
-        // #[arg(short, long)]
-        // username: Option<String>,
-
-        // /// The password for authentication with the broker
-        // #[arg(short, long)]
-        // password: Option<String>,
-
-        // /// MQTT topic
-        // #[arg(long, default_value_t = MqttConfig::default_topic())]
-        // topic: String,
-
-        // /// Quality of service to use
-        // #[arg(long, default_value_t = MqttConfig::default_qos())]
-        // qos: u8,
     },
 }
 
@@ -252,7 +233,7 @@ pub enum Commands {
         poll_iterval: Duration,
 
         #[command(subcommand)]
-        mode: DaemonMode,
+        mode: DaemonOutput,
     },
 
     /// Read all values of the measured and calculated electrical quantities

@@ -41,7 +41,7 @@ For TCP Modbus connected sdm72 energy meter:
 ```
 sdm72 tcp 192.168.0.222:502 read-all
 ```
-You can even use this tool as a daemon for a MQTT broker, the connection is configured via the `mqtt_config.yml` file:
+You can even use this tool as a daemon for a MQTT broker, the connection is configured via the `mqtt.yaml` file:
 ```
 sdm72 rtu --address 1 --baudrate 9600 daemon mqtt
 ```
