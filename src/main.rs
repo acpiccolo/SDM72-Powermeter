@@ -61,8 +61,7 @@ fn check_rtu_delay(delay: Duration, baud_rate: &proto::BaudRate) -> Duration {
     let min_rtu_delay = minimum_rtu_delay(baud_rate);
     if delay < min_rtu_delay {
         warn!(
-            "Your RTU delay of {:?} is below the minimum delay of {:?}, fallback to minimum",
-            delay, min_rtu_delay
+            "Your RTU delay of {delay:?} is below the minimum delay of {min_rtu_delay:?}, fallback to minimum"
         );
         return min_rtu_delay;
     }
@@ -97,12 +96,12 @@ fn main() -> Result<()> {
         commandline::Connection::Tcp { address, command } => {
             let socket_addr = address
                 .parse()
-                .with_context(|| format!("Cannot parse address {}", address))?;
-            trace!("Open TCP address {}", socket_addr);
+                .with_context(|| format!("Cannot parse address {address}"))?;
+            trace!("Open TCP address {socket_addr}");
             (
                 SDM72::new(
                     tokio_modbus::client::sync::tcp::connect(socket_addr)
-                        .with_context(|| format!("Cannot open {:?}", socket_addr))?,
+                        .with_context(|| format!("Cannot open {socket_addr:?}"))?,
                 ),
                 command,
             )
@@ -115,8 +114,7 @@ fn main() -> Result<()> {
             command,
         } => {
             trace!(
-                "Open RTU {} address {} baud rate {} parity and stop bits {}",
-                device, address, baud_rate, parity_and_stop_bits
+                "Open RTU {device} address {address} baud rate {baud_rate} parity and stop bits {parity_and_stop_bits}"
             );
             delay = check_rtu_delay(delay, baud_rate);
             (
@@ -130,7 +128,7 @@ fn main() -> Result<()> {
                         tokio_modbus::Slave(**address),
                     )
                     .with_context(|| {
-                        format!("Cannot open device {} baud rate {}", device, baud_rate)
+                        format!("Cannot open device {device} baud rate {baud_rate}")
                     })?,
                 ),
                 command,
@@ -146,7 +144,7 @@ fn main() -> Result<()> {
                     .read_all(&delay)
                     .with_context(|| "Cannot read all values")?;
                 if args.no_json {
-                    println!("{}", values);
+                    println!("{values}");
                 } else {
                     println!("{}", serde_json::to_string_pretty(&values)?);
                 }
@@ -161,7 +159,7 @@ fn main() -> Result<()> {
                 .read_all(&delay)
                 .with_context(|| "Cannot read all values")?;
             if args.no_json {
-                println!("{}", values);
+                println!("{values}");
             } else {
                 println!("{}", serde_json::to_string_pretty(&values)?);
             }
@@ -171,7 +169,7 @@ fn main() -> Result<()> {
                 .read_all_settings(&delay)
                 .with_context(|| "Cannot read all settings")?;
             if args.no_json {
-                println!("{}", settings);
+                println!("{settings}");
             } else {
                 println!("{}", serde_json::to_string_pretty(&settings)?);
             }
@@ -202,13 +200,13 @@ fn main() -> Result<()> {
             ensure_authorization(&mut d)?;
             d.set_baud_rate(*baud_rate)
                 .with_context(|| "Cannot set baud rate")?;
-            println!("Baud rate successfully changed to: {}", baud_rate);
+            println!("Baud rate successfully changed to: {baud_rate}");
         }
         commandline::Commands::SetAddress { address } => {
             ensure_authorization(&mut d)?;
             d.set_address(*address)
                 .with_context(|| "Cannot set RS485 address")?;
-            println!("Address successfully changed to: {}", address);
+            println!("Address successfully changed to: {address}");
         }
         commandline::Commands::SetPulseConstant {
             pulse_constant_in_kwh,
@@ -225,7 +223,7 @@ fn main() -> Result<()> {
             ensure_authorization(&mut d)?;
             d.set_password(*password)
                 .with_context(|| "Cannot set password")?;
-            println!("Password successfully changed to: {}", password);
+            println!("Password successfully changed to: {password}");
         }
         commandline::Commands::SetAutoScrollTime {
             auto_scroll_time_in_seconds,
@@ -234,8 +232,7 @@ fn main() -> Result<()> {
             d.set_auto_scroll_time(*auto_scroll_time_in_seconds)
                 .with_context(|| "Cannot set auto scroll time")?;
             println!(
-                "Auto scroll time successfully changed to: {}",
-                auto_scroll_time_in_seconds
+                "Auto scroll time successfully changed to: {auto_scroll_time_in_seconds}"
             );
         }
         commandline::Commands::SetBacklightTime {
@@ -245,8 +242,7 @@ fn main() -> Result<()> {
             d.set_backlight_time(*backlight_time_in_minutes)
                 .with_context(|| "Cannot set backlinght time")?;
             println!(
-                "Backlight time successfully changed to: {}",
-                backlight_time_in_minutes
+                "Backlight time successfully changed to: {backlight_time_in_minutes}"
             );
         }
         commandline::Commands::SetPulseEnergyType { pulse_energy_type } => {

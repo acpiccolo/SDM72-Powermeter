@@ -588,7 +588,7 @@ impl std::fmt::Display for BacklightTime {
         match self {
             Self::AlwaysOn => write!(f, "always on"),
             Self::AlwaysOff => write!(f, "always off"),
-            Self::Delayed(val) => write!(f, "{} min", val),
+            Self::Delayed(val) => write!(f, "{val} min"),
         }
     }
 }
