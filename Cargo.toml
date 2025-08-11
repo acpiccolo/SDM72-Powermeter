@@ -37,9 +37,9 @@ bin-dependencies = [
     "dep:humantime-serde",
 ]
 tokio-rtu-sync = ["tokio-modbus/rtu-sync", "dep:tokio-serial", "dep:paste"]
-tokio-rtu = ["tokio-modbus/rtu", "dep:tokio-serial", "dep:paste"]
+tokio-rtu = ["tokio/time", "tokio-modbus/rtu", "dep:tokio-serial", "dep:paste"]
 tokio-tcp-sync = ["tokio/net", "tokio-modbus/tcp-sync", "dep:paste"]
-tokio-tcp = ["tokio/net", "tokio-modbus/tcp", "dep:paste"]
+tokio-tcp = ["tokio/time", "tokio/net", "tokio-modbus/tcp", "dep:paste"]
 serde = ["serde/derive"]
 
 [dependencies]
