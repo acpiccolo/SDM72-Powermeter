@@ -1,25 +1,27 @@
+//! This module provides common data structures and error types for the `tokio`
+//! based clients.
+//!
+//! It defines the `Error` enum, which encapsulates all possible communication
+//! errors, and the `AllSettings` and `AllValues` structs, which are used to
+//! return all the settings and values from the device in one go.
+
 use crate::protocol as proto;
 
-/// Represent possible errors encountered during Modbus communication.
-///
-/// This enum encapsulates all potential errors that might occur while
-/// interacting with the SDM72 device.
-///
-/// # Variants
-///
-/// * 'SDM72Error' - Failure from the SDM72 protocol.
-/// * 'ModbusError' - Protocol or transport errors.
-/// * 'ModbusException' - A server (slave) exception.
+/// Represents all possible errors that can occur during Modbus communication.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// An error originating from the SDM72 protocol logic.
     #[error("SDM72 error: {0}")]
     SDM72Error(#[from] crate::Error),
+    /// An error from the underlying `tokio-modbus` library.
     #[error("Modbus error: {0}")]
     ModbusError(#[from] tokio_modbus::Error),
+    /// A Modbus exception response from the device.
     #[error("Modbus exception: {0}")]
     ModbusException(#[from] tokio_modbus::ExceptionCode),
 }
 
+/// A struct containing all the settings of the SDM72 meter.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AllSettings {
@@ -58,9 +60,11 @@ impl std::fmt::Display for AllSettings {
     }
 }
 
+/// A struct containing all the measurement values of the SDM72 meter.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AllValues {
+    // L1
     pub l1_voltage: proto::L1Voltage,
     pub l2_voltage: proto::L2Voltage,
     pub l3_voltage: proto::L3Voltage,

@@ -85,6 +85,16 @@ fn ensure_authorization(d: &mut SDM72) -> Result<()> {
     Ok(())
 }
 
+fn with_authorization<F>(d: &mut SDM72, f: F) -> Result<()>
+where
+    F: FnOnce(&mut SDM72) -> Result<String>,
+{
+    ensure_authorization(d)?;
+    let msg = f(d)?;
+    println!("{msg}");
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = commandline::Args::parse();
 
@@ -180,85 +190,98 @@ fn main() -> Result<()> {
                 .with_context(|| "Cannot set authorization")?;
         }
         commandline::Commands::SetWiringType { wiring_type } => {
-            ensure_authorization(&mut d)?;
-            d.set_system_type(**wiring_type)
-                .with_context(|| "Cannot set wiring type")?;
-            println!("Wiring type successfully changed to: {}", **wiring_type);
+            with_authorization(&mut d, |d| {
+                d.set_system_type(**wiring_type)
+                    .with_context(|| "Cannot set wiring type")?;
+                Ok(format!(
+                    "Wiring type successfully changed to: {}",
+                    **wiring_type
+                ))
+            })?;
         }
         commandline::Commands::SetParityAndStopBit {
             parity_and_stop_bit,
         } => {
-            ensure_authorization(&mut d)?;
-            d.set_parity_and_stop_bit(**parity_and_stop_bit)
-                .with_context(|| "Cannot set parity and stop bit")?;
-            println!(
-                "Parity and stop bit successfully changed to: {}",
-                **parity_and_stop_bit
-            );
+            with_authorization(&mut d, |d| {
+                d.set_parity_and_stop_bit(**parity_and_stop_bit)
+                    .with_context(|| "Cannot set parity and stop bit")?;
+                Ok(format!(
+                    "Parity and stop bit successfully changed to: {}",
+                    **parity_and_stop_bit
+                ))
+            })?;
         }
         commandline::Commands::SetBaudRate { baud_rate } => {
-            ensure_authorization(&mut d)?;
-            d.set_baud_rate(*baud_rate)
-                .with_context(|| "Cannot set baud rate")?;
-            println!("Baud rate successfully changed to: {baud_rate}");
+            with_authorization(&mut d, |d| {
+                d.set_baud_rate(*baud_rate)
+                    .with_context(|| "Cannot set baud rate")?;
+                Ok(format!("Baud rate successfully changed to: {baud_rate}"))
+            })?;
         }
         commandline::Commands::SetAddress { address } => {
-            ensure_authorization(&mut d)?;
-            d.set_address(*address)
-                .with_context(|| "Cannot set RS485 address")?;
-            println!("Address successfully changed to: {address}");
+            with_authorization(&mut d, |d| {
+                d.set_address(*address)
+                    .with_context(|| "Cannot set RS485 address")?;
+                Ok(format!("Address successfully changed to: {address}"))
+            })?;
         }
         commandline::Commands::SetPulseConstant {
             pulse_constant_in_kwh,
         } => {
-            ensure_authorization(&mut d)?;
-            d.set_pulse_constant(**pulse_constant_in_kwh)
-                .with_context(|| "Cannot set pulse constant")?;
-            println!(
-                "Pulse constant successfully changed to: {}",
-                **pulse_constant_in_kwh
-            );
+            with_authorization(&mut d, |d| {
+                d.set_pulse_constant(**pulse_constant_in_kwh)
+                    .with_context(|| "Cannot set pulse constant")?;
+                Ok(format!(
+                    "Pulse constant successfully changed to: {}",
+                    **pulse_constant_in_kwh
+                ))
+            })?;
         }
         commandline::Commands::SetPassword { password } => {
-            ensure_authorization(&mut d)?;
-            d.set_password(*password)
-                .with_context(|| "Cannot set password")?;
-            println!("Password successfully changed to: {password}");
+            with_authorization(&mut d, |d| {
+                d.set_password(*password)
+                    .with_context(|| "Cannot set password")?;
+                Ok(format!("Password successfully changed to: {password}"))
+            })?;
         }
         commandline::Commands::SetAutoScrollTime {
             auto_scroll_time_in_seconds,
         } => {
-            ensure_authorization(&mut d)?;
-            d.set_auto_scroll_time(*auto_scroll_time_in_seconds)
-                .with_context(|| "Cannot set auto scroll time")?;
-            println!(
-                "Auto scroll time successfully changed to: {auto_scroll_time_in_seconds}"
-            );
+            with_authorization(&mut d, |d| {
+                d.set_auto_scroll_time(*auto_scroll_time_in_seconds)
+                    .with_context(|| "Cannot set auto scroll time")?;
+                Ok(format!(
+                    "Auto scroll time successfully changed to: {auto_scroll_time_in_seconds}"
+                ))
+            })?;
         }
         commandline::Commands::SetBacklightTime {
             backlight_time_in_minutes,
         } => {
-            ensure_authorization(&mut d)?;
-            d.set_backlight_time(*backlight_time_in_minutes)
-                .with_context(|| "Cannot set backlinght time")?;
-            println!(
-                "Backlight time successfully changed to: {backlight_time_in_minutes}"
-            );
+            with_authorization(&mut d, |d| {
+                d.set_backlight_time(*backlight_time_in_minutes)
+                    .with_context(|| "Cannot set backlinght time")?;
+                Ok(format!(
+                    "Backlight time successfully changed to: {backlight_time_in_minutes}"
+                ))
+            })?;
         }
         commandline::Commands::SetPulseEnergyType { pulse_energy_type } => {
-            ensure_authorization(&mut d)?;
-            d.set_pulse_energy_type(**pulse_energy_type)
-                .with_context(|| "Cannot set pulse energy type")?;
-            println!(
-                "Pulse energy type successfully changed to: {}",
-                **pulse_energy_type
-            );
+            with_authorization(&mut d, |d| {
+                d.set_pulse_energy_type(**pulse_energy_type)
+                    .with_context(|| "Cannot set pulse energy type")?;
+                Ok(format!(
+                    "Pulse energy type successfully changed to: {}",
+                    **pulse_energy_type
+                ))
+            })?;
         }
         commandline::Commands::ResetHistoricalData => {
-            ensure_authorization(&mut d)?;
-            d.reset_historical_data()
-                .with_context(|| "Cannot reset historical data")?;
-            println!("Historical data successfully reset",);
+            with_authorization(&mut d, |d| {
+                d.reset_historical_data()
+                    .with_context(|| "Cannot reset historical data")?;
+                Ok("Historical data successfully reset".to_string())
+            })?;
         }
     }
 

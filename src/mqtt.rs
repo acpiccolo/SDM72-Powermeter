@@ -222,11 +222,8 @@ pub fn run_mqtt_daemon(
 
         if !no_json {
             let payload = serde_json::to_string(&values)?;
-            let msg = paho_mqtt::Message::new(
-                format!("{}/JSON", config.topic),
-                payload,
-                config.qos,
-            );
+            let msg =
+                paho_mqtt::Message::new(format!("{}/JSON", config.topic), payload, config.qos);
             cli.publish(msg)
                 .with_context(|| "Cannot publish MQTT message")?;
         }

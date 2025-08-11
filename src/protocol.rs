@@ -1,20 +1,31 @@
-//! SDM72D-M-2
-//! Three Phase Four Wire Energy Meter
+//! This module defines the core data structures and traits for the SDM72 Modbus protocol.
+//!
+//! It includes definitions for all supported Modbus registers, data types for meter
+//! settings and measurements, and helper traits for encoding and decoding Modbus data.
+//!
+//! The documentation for this module is based on the "Eastron SDM72D-M-v2 Modbus Protocol"
+//! document.
 
 use crate::Error;
 
 /// 16-bit value stored in Modbus register.
 pub type Word = u16;
 
+/// A trait for defining Modbus parameters.
+///
+/// This trait provides a common interface for defining the properties of a Modbus
+/// register, such as its address, the number of words it occupies, and the data
+/// type it represents.
 pub trait ModbusParam: Sized {
-    /// Modbus holing register address
+    /// The Modbus holding register address.
     const ADDRESS: u16;
-    /// Modbus quantity in words, length in bytes = QUANITIY * 2
+    /// The quantity of Modbus words (16-bit). The length in bytes is `QUANTITY * 2`.
     const QUANTITY: u16;
-    /// Modbus data format
+    /// The data type that the Modbus words represent (e.g., `f32`, `u16`).
     type ProtocolType;
 }
 
+/// A macro to convert a slice of `u16` words into a protocol value (e.g., `f32`).
 macro_rules! words_to_protocol_value {
     ($words:expr) => {{
         let bytes = $words
@@ -27,6 +38,7 @@ macro_rules! words_to_protocol_value {
     }};
 }
 
+/// A macro to convert a protocol value (e.g., `f32`) into a `Vec<u16>` of Modbus words.
 macro_rules! protocol_value_to_words {
     ($val:expr) => {
         $val.to_be_bytes()
@@ -63,7 +75,7 @@ impl SystemType {
         match val {
             1.0 => Ok(SystemType::Type1P2W),
             3.0 => Ok(SystemType::Type3P4W),
-            _ => unreachable!(),
+            _ => Err(Error::InvalidValue),
         }
     }
 
@@ -149,7 +161,7 @@ impl KPPA {
         match val {
             0.0 => Ok(Self::NotAuthorized),
             1.0 => Ok(Self::Authorized),
-            _ => unreachable!(),
+            _ => Err(Error::InvalidValue),
         }
     }
 
@@ -198,7 +210,7 @@ impl ParityAndStopBit {
             1.0 => Ok(Self::EvenParityOneStopBit),
             2.0 => Ok(Self::OddParityOneStopBit),
             3.0 => Ok(Self::NoParityTwoStopBits),
-            _ => unreachable!(),
+            _ => Err(Error::InvalidValue),
         }
     }
 
@@ -309,7 +321,7 @@ impl PulseConstant {
             1.0 => Ok(Self::PC100),
             2.0 => Ok(Self::PC10),
             3.0 => Ok(Self::PC1),
-            _ => unreachable!(),
+            _ => Err(Error::InvalidValue),
         }
     }
 
@@ -415,7 +427,7 @@ impl BaudRate {
             1.0 => Ok(Self::B4800),
             2.0 => Ok(Self::B9600),
             3.0 => Ok(Self::B19200),
-            _ => unreachable!(),
+            _ => Err(Error::InvalidValue),
         }
     }
 
@@ -616,7 +628,7 @@ impl PulseEnergyType {
             1.0 => Ok(Self::ImportActiveEnergy),
             2.0 => Ok(Self::TotalActiveEnergy),
             4.0 => Ok(Self::ExportActiveEnergy),
-            _ => unreachable!(),
+            _ => Err(Error::InvalidValue),
         }
     }
 
@@ -734,13 +746,17 @@ impl std::fmt::Display for SoftwareVersion {
     }
 }
 
-/// Input registers are used to indicate the present values of the measured and calculated electrical quantities.
-/// Modbus Protocol function code 04 is used to access all parameters.
+/// A trait for Modbus input registers.
 ///
-/// Not: Each request for data must be restricted to 30 parameters or less.
-/// Exceeding the 30 parameter limit will cause a Modbus Protocol exception code to be returned.
+/// Input registers are used to indicate the present values of the measured and
+/// calculated electrical quantities. Modbus Protocol function code 04 is used to
+/// access all parameters.
+///
+/// Note: Each request for data must be restricted to 30 parameters or less.
+/// Exceeding the 30 parameter limit will cause a Modbus Protocol exception code
+/// to be returned.
 pub trait ModbusInputRegister: ModbusParam {
-    /// Decode from a Modbus input register into Self. This decoding is used to read data from the device.
+    /// Decodes a value from a slice of Modbus input register words.
     fn decode_from_input_register(words: &[Word]) -> Result<Self, Error>;
 }
 
@@ -756,13 +772,18 @@ where
     se.serialize_f32(f32round(*fv))
 }
 
+/// A macro to define a newtype struct for a Modbus input register.
+///
+/// This macro generates a newtype struct that wraps a protocol type (e.g., `f32`)
+/// and implements the `ModbusParam` and `ModbusInputRegister` traits for it.
+/// It also implements `Display` and `Deref`.
 macro_rules! modbus_input_register {
     ($vis:vis $ty:ident, $address:expr, $quantity:expr, $protocol_type:ty) => {
         #[derive(Debug, Clone, Copy, PartialEq)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         $vis struct $ty(
             #[cfg_attr(feature = "serde", serde(serialize_with = "f32ser2"))]
-            $protocol_type
+            $protocol_type,
         );
         impl std::fmt::Display for $ty {
             fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -791,6 +812,9 @@ macro_rules! modbus_input_register {
         }
     };
 }
+/// A macro to get the range of a register within a larger response slice.
+///
+/// This is used when reading a batch of registers at once.
 #[macro_export]
 macro_rules! get_subset_register_range {
     ($offset:expr, $register_name:ty) => {{
@@ -798,6 +822,10 @@ macro_rules! get_subset_register_range {
             ..(<$register_name>::ADDRESS - $offset + <$register_name>::QUANTITY) as usize
     }};
 }
+
+/// A macro to decode a holding register value from a response slice.
+///
+/// This is used when reading a batch of registers at once.
 #[macro_export]
 macro_rules! decode_subset_item_from_holding_register {
     ($offset:expr, $register_name:ty, $rsp:expr) => {{
@@ -806,6 +834,10 @@ macro_rules! decode_subset_item_from_holding_register {
         )
     }};
 }
+
+/// A macro to decode an input register value from a response slice.
+///
+/// This is used when reading a batch of registers at once.
 #[macro_export]
 macro_rules! decode_subset_item_from_input_register {
     ($offset:expr, $register_name:ty, $rsp:expr) => {{

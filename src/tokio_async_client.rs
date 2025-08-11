@@ -1,19 +1,29 @@
+//! This module provides an asynchronous client for the SDM72 energy meter.
+//!
+//! The `SDM72` struct is the main entry point for interacting with the meter.
+//! It uses an asynchronous `tokio-modbus` context for communication.
+//!
+//! This client is suitable for applications that require non-blocking operations.
+
 use crate::{
     protocol::{self as proto, ModbusParam},
     tokio_common::{AllSettings, AllValues},
 };
 use tokio_modbus::prelude::{Reader, Writer};
 
+/// An asynchronous result type for Modbus operations.
 type Result<T> = std::result::Result<T, crate::tokio_common::Error>;
 
+/// An asynchronous client for the SDM72 energy meter.
 pub struct SDM72 {
     ctx: tokio_modbus::client::Context,
 }
 
+/// A macro to generate an async function for reading a holding register.
 macro_rules! read_holding {
     ($func_name:expr, $ty:ident) => {
         paste::item! {
-            #[doc = "Read [`proto::" $ty "`] from Modbus holding register."]
+            #[doc = "Reads the [`proto::" $ty "`] value from the Modbus holding register."]
             pub async fn $func_name(&mut self) -> Result<proto::$ty> {
                 let rsp = self
                     .ctx
@@ -23,10 +33,12 @@ macro_rules! read_holding {
         }
     };
 }
+
+/// A macro to generate an async function for writing a holding register.
 macro_rules! write_holding {
     ($func_name:expr, $ty:ident) => {
         paste::item! {
-            #[doc = "Write [`proto::" $ty "`] to Modbus holding register."]
+            #[doc = "Writes the [`proto::" $ty "`] value to the Modbus holding register."]
             pub async fn [< set_ $func_name >](&mut self, value: proto::$ty) -> Result<()> {
                 Ok(self.ctx.write_multiple_registers(
                     <proto::$ty>::ADDRESS,
@@ -48,6 +60,9 @@ impl SDM72 {
     read_holding!(pulse_width, PulseWidth);
     write_holding!(pulse_width, PulseWidth);
     read_holding!(kppa, KPPA);
+    /// Sets the Key Parameter Programming Authorization (KPPA).
+    ///
+    /// This is required to change settings on the meter.
     pub async fn set_kppa(&mut self, password: proto::Password) -> Result<()> {
         Ok(self
             .ctx
@@ -73,6 +88,9 @@ impl SDM72 {
     write_holding!(backlight_time, BacklightTime);
     read_holding!(pulse_energy_type, PulseEnergyType);
     write_holding!(pulse_energy_type, PulseEnergyType);
+    /// Resets the historical data on the meter.
+    ///
+    /// This requires KPPA authorization.
     pub async fn reset_historical_data(&mut self) -> Result<()> {
         Ok(self
             .ctx
@@ -86,22 +104,27 @@ impl SDM72 {
     read_holding!(meter_code, MeterCode);
     read_holding!(software_version, SoftwareVersion);
 
-    /// Read all settings
+    /// Reads all settings from the meter in a single batch operation.
+    ///
+    /// This method is more efficient than reading each setting individually, as it
+    /// minimizes the number of Modbus requests.
     ///
     /// # Arguments
     ///
-    /// * `delay` - Delay between multiple Modbus requests.
+    /// * `delay` - A delay to be inserted between Modbus requests. This is
+    ///   necessary for some Modbus devices to have enough time to process
+    ///   the previous request.
     pub async fn read_all_settings(&mut self, delay: &std::time::Duration) -> Result<AllSettings> {
         let offset1 = proto::SystemType::ADDRESS;
         let quantity =
             { proto::PulseEnergyType::ADDRESS - offset1 + proto::PulseEnergyType::QUANTITY };
         let rsp1 = self.ctx.read_holding_registers(offset1, quantity).await??;
 
-        std::thread::sleep(*delay);
+        tokio::time::sleep(*delay).await;
         let serial_number = self.serial_number().await?;
-        std::thread::sleep(*delay);
+        tokio::time::sleep(*delay).await;
         let meter_code = self.meter_code().await?;
-        std::thread::sleep(*delay);
+        tokio::time::sleep(*delay).await;
         let software_version = self.software_version().await?;
 
         Ok(AllSettings {
@@ -162,31 +185,36 @@ impl SDM72 {
         })
     }
 
-    /// Read all values of the measured and calculated electrical quantities.
+    /// Reads all measurement values from the meter in a single batch operation.
+    ///
+    /// This method is more efficient than reading each value individually, as it
+    /// minimizes the number of Modbus requests.
     ///
     /// # Arguments
     ///
-    /// * `delay` - Delay between multiple Modbus requests.
+    /// * `delay` - A delay to be inserted between Modbus requests. This is
+    ///   necessary for some Modbus devices to have enough time to process
+    ///   the previous request.
     pub async fn read_all(&mut self, delay: &std::time::Duration) -> Result<AllValues> {
         let offset1 = proto::L1Voltage::ADDRESS;
         let quantity =
             { proto::ExportEnergyActive::ADDRESS - offset1 + proto::ExportEnergyActive::QUANTITY };
         let rsp1 = self.ctx.read_input_registers(offset1, quantity).await??;
 
-        std::thread::sleep(*delay);
+        tokio::time::sleep(*delay).await;
 
         let offset2 = proto::L1ToL2Voltage::ADDRESS;
         let quantity =
             { proto::NeutralCurrent::ADDRESS - offset2 + proto::NeutralCurrent::QUANTITY };
         let rsp2 = self.ctx.read_input_registers(offset2, quantity).await??;
 
-        std::thread::sleep(*delay);
+        tokio::time::sleep(*delay).await;
 
         let offset3 = proto::TotalEnergyActive::ADDRESS;
         let quantity = { proto::NetKwh::ADDRESS - offset3 + proto::NetKwh::QUANTITY };
         let rsp3 = self.ctx.read_input_registers(offset3, quantity).await??;
 
-        std::thread::sleep(*delay);
+        tokio::time::sleep(*delay).await;
 
         let offset4 = proto::ImportTotalPowerActive::ADDRESS;
         let quantity = {
