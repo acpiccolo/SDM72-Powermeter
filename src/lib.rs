@@ -59,7 +59,7 @@
 //!     let builder = sdm72_lib::tokio_common::serial_port_builder(
 //!         "/dev/ttyUSB0", // Or "COM3" on Windows, etc.
 //!         &BaudRate::B9600,
-//!         &Default::default(),
+//!         &ParityAndStopBit::NoParityOneStopBit,
 //!     );
 //!     let slave = tokio_modbus::Slave(1);
 //!     let ctx = tokio_modbus::client::sync::rtu::connect_slave(&builder, slave)?;
@@ -89,7 +89,7 @@
 //!     let builder = sdm72_lib::tokio_common::serial_port_builder(
 //!         "/dev/ttyUSB0", // Or "COM3" on Windows, etc.
 //!         &BaudRate::B9600,
-//!         &Default::default(),
+//!         &ParityAndStopBit::NoParityOneStopBit,
 //!     );
 //!     let slave = tokio_modbus::Slave(1);
 //!     let port = SerialStream::open(&builder)?;

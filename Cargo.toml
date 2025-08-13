@@ -66,3 +66,6 @@ dialoguer = { version = "0.11", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+
+[package.metadata.cargo-machete]
+ignored = ["humantime-serde"]
