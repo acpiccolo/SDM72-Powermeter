@@ -130,7 +130,7 @@ fn main() -> Result<()> {
             (
                 SDM72::new(
                     tokio_modbus::client::sync::rtu::connect_slave(
-                        &sdm72_lib::tokio_serial::serial_port_builder(
+                        &sdm72_lib::tokio_common::serial_port_builder(
                             device,
                             baud_rate,
                             parity_and_stop_bits,

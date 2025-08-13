@@ -1,20 +1,30 @@
 //! This module provides an asynchronous client for the SDM72 energy meter.
 //!
-//! The `SDM72` struct is the main entry point for interacting with the meter.
-//! It uses an asynchronous `tokio-modbus` context for communication.
+//! The [`SDM72`] struct is the main entry point for interacting with the meter. It
+//! wraps an asynchronous `tokio-modbus` context and provides high-level methods
+//! for reading and writing meter data.
 //!
-//! This client is suitable for applications that require non-blocking operations.
+//! This client is suitable for applications that require non-blocking I/O and
+//! is designed to be used within a `tokio` runtime. For applications that do
+//! not use `tokio`, the synchronous client in the [`crate::tokio_sync_client`]
+//! module may be more suitable.
+//!
+//! # Example
+//!
+//! For a complete example of how to use this client, see the documentation for
+//! the main library (`sdm72_lib`).
 
 use crate::{
     protocol::{self as proto, ModbusParam},
-    tokio_common::{AllSettings, AllValues},
+    tokio_common::{AllSettings, AllValues, Result},
 };
 use tokio_modbus::prelude::{Reader, Writer};
 
-/// An asynchronous result type for Modbus operations.
-type Result<T> = std::result::Result<T, crate::tokio_common::Error>;
-
 /// An asynchronous client for the SDM72 energy meter.
+///
+/// This struct provides a high-level interface for interacting with the SDM72
+/// energy meter. It uses an asynchronous `tokio-modbus` context for communication.
+/// An instance of this client can be created using the [`new`](#method.new) method.
 pub struct SDM72 {
     ctx: tokio_modbus::client::Context,
 }
@@ -50,7 +60,11 @@ macro_rules! write_holding {
 }
 
 impl SDM72 {
-    /// Constructs a new SDM72 client
+    /// Constructs a new `SDM72` client with the given `tokio-modbus` context.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - An asynchronous `tokio-modbus` context.
     pub fn new(ctx: tokio_modbus::client::Context) -> Self {
         Self { ctx }
     }
@@ -106,14 +120,18 @@ impl SDM72 {
 
     /// Reads all settings from the meter in a single batch operation.
     ///
-    /// This method is more efficient than reading each setting individually, as it
-    /// minimizes the number of Modbus requests.
+    /// This method is more efficient than reading each setting individually because
+    /// it minimizes the number of Modbus requests by batching them. The SDM72
+    /// meter has a limit of 30 parameters per request, so this function splits
+    /// the reads into multiple batches.
     ///
     /// # Arguments
     ///
-    /// * `delay` - A delay to be inserted between Modbus requests. This is
-    ///   necessary for some Modbus devices to have enough time to process
-    ///   the previous request.
+    /// * `delay` - The delay to be inserted between Modbus requests. This is
+    ///   necessary for some Modbus devices, which may need a short pause to
+    ///   process a request before they are ready to accept the next one. A
+    ///   typical value is 100 milliseconds, but this may vary depending on the
+    ///   device and network conditions.
     pub async fn read_all_settings(&mut self, delay: &std::time::Duration) -> Result<AllSettings> {
         let offset1 = proto::SystemType::ADDRESS;
         let quantity =
@@ -187,14 +205,18 @@ impl SDM72 {
 
     /// Reads all measurement values from the meter in a single batch operation.
     ///
-    /// This method is more efficient than reading each value individually, as it
-    /// minimizes the number of Modbus requests.
+    /// This method is more efficient than reading each value individually because
+    /// it minimizes the number of Modbus requests by batching them. The SDM72
+    /// meter has a limit of 30 parameters per request, so this function splits
+    /// the reads into multiple batches.
     ///
     /// # Arguments
     ///
-    /// * `delay` - A delay to be inserted between Modbus requests. This is
-    ///   necessary for some Modbus devices to have enough time to process
-    ///   the previous request.
+    /// * `delay` - The delay to be inserted between Modbus requests. This is
+    ///   necessary for some Modbus devices, which may need a short pause to
+    ///   process a request before they are ready to accept the next one. A
+    ///   typical value is 100 milliseconds, but this may vary depending on the
+    ///   device and network conditions.
     pub async fn read_all(&mut self, delay: &std::time::Duration) -> Result<AllValues> {
         let offset1 = proto::L1Voltage::ADDRESS;
         let quantity =
