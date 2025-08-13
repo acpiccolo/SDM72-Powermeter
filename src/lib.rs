@@ -150,9 +150,6 @@
 //! }
 //! ```
 
-mod error;
-
-pub use error::Error;
 pub mod protocol;
 
 #[cfg(any(
