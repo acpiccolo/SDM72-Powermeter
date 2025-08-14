@@ -131,7 +131,7 @@ impl MqttConfig {
 }
 
 pub fn run_mqtt_daemon(
-    d: &mut sdm72_lib::tokio_sync_client::SDM72,
+    client: &mut sdm72_lib::tokio_sync_safe_client::SafeClient,
     delay: &Duration,
     poll_interval: &Duration,
     config_file: &str,
@@ -141,7 +141,7 @@ pub fn run_mqtt_daemon(
     let cli = config.create_client()?;
 
     loop {
-        let values = d
+        let values = client
             .read_all(delay)
             .with_context(|| "Cannot read all values")?;
 

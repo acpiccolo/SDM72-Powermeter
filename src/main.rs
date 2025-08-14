@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use flexi_logger::{Logger, LoggerHandle};
 use log::*;
-use sdm72_lib::{protocol as proto, tokio_sync_client::SDM72};
+use sdm72_lib::{protocol as proto, tokio_sync_safe_client::SafeClient};
 use std::{ops::Deref, panic, time::Duration};
 
 mod commandline;
@@ -68,8 +68,8 @@ fn check_rtu_delay(delay: Duration, baud_rate: &proto::BaudRate) -> Duration {
     delay
 }
 
-fn ensure_authorization(d: &mut SDM72) -> Result<()> {
-    if proto::KPPA::Authorized != d.kppa().with_context(|| "Cannot get authorization")? {
+fn ensure_authorization(client: &mut SafeClient) -> Result<()> {
+    if proto::KPPA::Authorized != client.kppa().with_context(|| "Cannot get authorization")? {
         let passwd = dialoguer::Input::new()
             .with_prompt("Authorization is required, please enter password")
             .validate_with(|input: &String| -> Result<(), String> {
@@ -79,18 +79,19 @@ fn ensure_authorization(d: &mut SDM72) -> Result<()> {
             .default(proto::Password::default().to_string())
             .interact_text()
             .unwrap();
-        d.set_kppa(commandline::parse_password(&passwd).unwrap())
+        client
+            .set_kppa(commandline::parse_password(&passwd).unwrap())
             .with_context(|| "Authorization failed")?;
     }
     Ok(())
 }
 
-fn with_authorization<F>(d: &mut SDM72, f: F) -> Result<()>
+fn with_authorization<F>(client: &mut SafeClient, f: F) -> Result<()>
 where
-    F: FnOnce(&mut SDM72) -> Result<String>,
+    F: FnOnce(&mut SafeClient) -> Result<String>,
 {
-    ensure_authorization(d)?;
-    let msg = f(d)?;
+    ensure_authorization(client)?;
+    let msg = f(client)?;
     println!("{msg}");
     Ok(())
 }
@@ -102,19 +103,15 @@ fn main() -> Result<()> {
 
     let _log_handle = logging_init(args.verbose.log_level_filter());
 
-    let (mut d, command) = match &args.connection {
+    let (mut ctx, command) = match &args.connection {
         commandline::Connection::Tcp { address, command } => {
             let socket_addr = address
                 .parse()
                 .with_context(|| format!("Cannot parse address {address}"))?;
             trace!("Open TCP address {socket_addr}");
-            (
-                SDM72::new(
-                    tokio_modbus::client::sync::tcp::connect(socket_addr)
-                        .with_context(|| format!("Cannot open {socket_addr:?}"))?,
-                ),
-                command,
-            )
+            let ctx = tokio_modbus::client::sync::tcp::connect(socket_addr)
+                .with_context(|| format!("Cannot open {socket_addr:?}"))?;
+            (ctx, command)
         }
         commandline::Connection::Rtu {
             device,
@@ -127,30 +124,25 @@ fn main() -> Result<()> {
                 "Open RTU {device} address {address} baud rate {baud_rate} parity and stop bits {parity_and_stop_bits}"
             );
             delay = check_rtu_delay(delay, baud_rate);
-            (
-                SDM72::new(
-                    tokio_modbus::client::sync::rtu::connect_slave(
-                        &sdm72_lib::tokio_common::serial_port_builder(
-                            device,
-                            baud_rate,
-                            parity_and_stop_bits,
-                        ),
-                        tokio_modbus::Slave(**address),
-                    )
-                    .with_context(|| {
-                        format!("Cannot open device {device} baud rate {baud_rate}")
-                    })?,
+            let ctx = tokio_modbus::client::sync::rtu::connect_slave(
+                &sdm72_lib::tokio_common::serial_port_builder(
+                    device,
+                    baud_rate,
+                    parity_and_stop_bits,
                 ),
-                command,
+                tokio_modbus::Slave(**address),
             )
+            .with_context(|| format!("Cannot open device {device} baud rate {baud_rate}"))?;
+            (ctx, command)
         }
     };
-    d.set_timeout(args.timeout);
+    ctx.set_timeout(args.timeout);
+    let mut client = SafeClient::new(ctx);
 
     match command {
         commandline::Commands::Daemon { poll_iterval, mode } => match mode {
             commandline::DaemonOutput::Console => loop {
-                let values = d
+                let values = client
                     .read_all(&delay)
                     .with_context(|| "Cannot read all values")?;
                 if args.no_json {
@@ -161,11 +153,17 @@ fn main() -> Result<()> {
                 std::thread::sleep(delay.max(*poll_iterval));
             },
             commandline::DaemonOutput::Mqtt { config_file } => {
-                mqtt::run_mqtt_daemon(&mut d, &delay, poll_iterval, config_file, args.no_json)?;
+                mqtt::run_mqtt_daemon(
+                    &mut client,
+                    &delay,
+                    poll_iterval,
+                    config_file,
+                    args.no_json,
+                )?;
             }
         },
         commandline::Commands::ReadAll => {
-            let values = d
+            let values = client
                 .read_all(&delay)
                 .with_context(|| "Cannot read all values")?;
             if args.no_json {
@@ -175,7 +173,7 @@ fn main() -> Result<()> {
             }
         }
         commandline::Commands::ReadAllSettings => {
-            let settings = d
+            let settings = client
                 .read_all_settings(&delay)
                 .with_context(|| "Cannot read all settings")?;
             if args.no_json {
@@ -186,12 +184,14 @@ fn main() -> Result<()> {
         }
 
         commandline::Commands::Password { password } => {
-            d.set_kppa(*password)
+            client
+                .set_kppa(*password)
                 .with_context(|| "Cannot set authorization")?;
         }
         commandline::Commands::SetWiringType { wiring_type } => {
-            with_authorization(&mut d, |d| {
-                d.set_system_type(**wiring_type)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_system_type(**wiring_type)
                     .with_context(|| "Cannot set wiring type")?;
                 Ok(format!(
                     "Wiring type successfully changed to: {}",
@@ -202,8 +202,9 @@ fn main() -> Result<()> {
         commandline::Commands::SetParityAndStopBit {
             parity_and_stop_bit,
         } => {
-            with_authorization(&mut d, |d| {
-                d.set_parity_and_stop_bit(**parity_and_stop_bit)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_parity_and_stop_bit(**parity_and_stop_bit)
                     .with_context(|| "Cannot set parity and stop bit")?;
                 Ok(format!(
                     "Parity and stop bit successfully changed to: {}",
@@ -212,15 +213,17 @@ fn main() -> Result<()> {
             })?;
         }
         commandline::Commands::SetBaudRate { baud_rate } => {
-            with_authorization(&mut d, |d| {
-                d.set_baud_rate(*baud_rate)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_baud_rate(*baud_rate)
                     .with_context(|| "Cannot set baud rate")?;
                 Ok(format!("Baud rate successfully changed to: {baud_rate}"))
             })?;
         }
         commandline::Commands::SetAddress { address } => {
-            with_authorization(&mut d, |d| {
-                d.set_address(*address)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_address(*address)
                     .with_context(|| "Cannot set RS485 address")?;
                 Ok(format!("Address successfully changed to: {address}"))
             })?;
@@ -228,8 +231,9 @@ fn main() -> Result<()> {
         commandline::Commands::SetPulseConstant {
             pulse_constant_in_kwh,
         } => {
-            with_authorization(&mut d, |d| {
-                d.set_pulse_constant(**pulse_constant_in_kwh)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_pulse_constant(**pulse_constant_in_kwh)
                     .with_context(|| "Cannot set pulse constant")?;
                 Ok(format!(
                     "Pulse constant successfully changed to: {}",
@@ -238,8 +242,9 @@ fn main() -> Result<()> {
             })?;
         }
         commandline::Commands::SetPassword { password } => {
-            with_authorization(&mut d, |d| {
-                d.set_password(*password)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_password(*password)
                     .with_context(|| "Cannot set password")?;
                 Ok(format!("Password successfully changed to: {password}"))
             })?;
@@ -247,8 +252,9 @@ fn main() -> Result<()> {
         commandline::Commands::SetAutoScrollTime {
             auto_scroll_time_in_seconds,
         } => {
-            with_authorization(&mut d, |d| {
-                d.set_auto_scroll_time(*auto_scroll_time_in_seconds)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_auto_scroll_time(*auto_scroll_time_in_seconds)
                     .with_context(|| "Cannot set auto scroll time")?;
                 Ok(format!(
                     "Auto scroll time successfully changed to: {auto_scroll_time_in_seconds}"
@@ -258,8 +264,9 @@ fn main() -> Result<()> {
         commandline::Commands::SetBacklightTime {
             backlight_time_in_minutes,
         } => {
-            with_authorization(&mut d, |d| {
-                d.set_backlight_time(*backlight_time_in_minutes)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_backlight_time(*backlight_time_in_minutes)
                     .with_context(|| "Cannot set backlinght time")?;
                 Ok(format!(
                     "Backlight time successfully changed to: {backlight_time_in_minutes}"
@@ -267,8 +274,9 @@ fn main() -> Result<()> {
             })?;
         }
         commandline::Commands::SetPulseEnergyType { pulse_energy_type } => {
-            with_authorization(&mut d, |d| {
-                d.set_pulse_energy_type(**pulse_energy_type)
+            with_authorization(&mut client, |client| {
+                client
+                    .set_pulse_energy_type(**pulse_energy_type)
                     .with_context(|| "Cannot set pulse energy type")?;
                 Ok(format!(
                     "Pulse energy type successfully changed to: {}",
@@ -277,8 +285,9 @@ fn main() -> Result<()> {
             })?;
         }
         commandline::Commands::ResetHistoricalData => {
-            with_authorization(&mut d, |d| {
-                d.reset_historical_data()
+            with_authorization(&mut client, |client| {
+                client
+                    .reset_historical_data()
                     .with_context(|| "Cannot reset historical data")?;
                 Ok("Historical data successfully reset".to_string())
             })?;

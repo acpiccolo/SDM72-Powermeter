@@ -6,13 +6,32 @@
 //!
 //! This client is suitable for applications that require non-blocking I/O and
 //! is designed to be used within a `tokio` runtime. For applications that do
-//! not use `tokio`, the synchronous client in the [`crate::tokio_sync_client`]
+//! not use `tokio`, the synchronous client in the [`crate::tokio_sync`]
 //! module may be more suitable.
 //!
 //! # Example
 //!
-//! For a complete example of how to use this client, see the documentation for
-//! the main library (`sdm72_lib`).
+//! ```no_run
+//! use sdm72_lib::{
+//!     protocol::Address,
+//!     tokio_async::SDM72,
+//! };
+//! use tokio_modbus::client::tcp;
+//! use tokio_modbus::Slave;
+//! use std::time::Duration;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let socket_addr = "192.168.1.100:502".parse()?;
+//!     let mut ctx = tcp::connect_slave(socket_addr, Slave(*Address::default())).await?;
+//!
+//!     let values = SDM72::read_all(&mut ctx, &Duration::from_millis(100)).await?;
+//!
+//!     println!("Successfully read values: {:#?}", values);
+//!
+//!     Ok(())
+//! }
+//! ```
 
 use crate::{
     protocol::{self as proto, ModbusParam},
@@ -25,18 +44,15 @@ use tokio_modbus::prelude::{Reader, Writer};
 /// This struct provides a high-level interface for interacting with the SDM72
 /// energy meter. It uses an asynchronous `tokio-modbus` context for communication.
 /// An instance of this client can be created using the [`new`](#method.new) method.
-pub struct SDM72 {
-    ctx: tokio_modbus::client::Context,
-}
+pub struct SDM72;
 
 /// A macro to generate an async function for reading a holding register.
 macro_rules! read_holding {
     ($func_name:expr, $ty:ident) => {
         paste::item! {
             #[doc = "Reads the [`proto::" $ty "`] value from the Modbus holding register."]
-            pub async fn $func_name(&mut self) -> Result<proto::$ty> {
-                let rsp = self
-                    .ctx
+            pub async fn $func_name(ctx: &mut tokio_modbus::client::Context) -> Result<proto::$ty> {
+                let rsp = ctx
                     .read_holding_registers(<proto::$ty>::ADDRESS, <proto::$ty>::QUANTITY).await??;
                 Ok(<proto::$ty>::decode_from_holding_registers(&rsp)?)
             }
@@ -49,8 +65,8 @@ macro_rules! write_holding {
     ($func_name:expr, $ty:ident) => {
         paste::item! {
             #[doc = "Writes the [`proto::" $ty "`] value to the Modbus holding register."]
-            pub async fn [< set_ $func_name >](&mut self, value: proto::$ty) -> Result<()> {
-                Ok(self.ctx.write_multiple_registers(
+            pub async fn [< set_ $func_name >](ctx: &mut tokio_modbus::client::Context, value: proto::$ty) -> Result<()> {
+                Ok(ctx.write_multiple_registers(
                     <proto::$ty>::ADDRESS,
                     &value.encode_for_write_registers(),
                 ).await??)
@@ -60,15 +76,6 @@ macro_rules! write_holding {
 }
 
 impl SDM72 {
-    /// Constructs a new `SDM72` client with the given `tokio-modbus` context.
-    ///
-    /// # Arguments
-    ///
-    /// * `ctx` - An asynchronous `tokio-modbus` context.
-    pub fn new(ctx: tokio_modbus::client::Context) -> Self {
-        Self { ctx }
-    }
-
     read_holding!(system_type, SystemType);
     write_holding!(system_type, SystemType);
     read_holding!(pulse_width, PulseWidth);
@@ -77,9 +84,11 @@ impl SDM72 {
     /// Sets the Key Parameter Programming Authorization (KPPA).
     ///
     /// This is required to change settings on the meter.
-    pub async fn set_kppa(&mut self, password: proto::Password) -> Result<()> {
-        Ok(self
-            .ctx
+    pub async fn set_kppa(
+        ctx: &mut tokio_modbus::client::Context,
+        password: proto::Password,
+    ) -> Result<()> {
+        Ok(ctx
             .write_multiple_registers(
                 proto::KPPA::ADDRESS,
                 &proto::KPPA::encode_for_write_registers(password),
@@ -105,9 +114,8 @@ impl SDM72 {
     /// Resets the historical data on the meter.
     ///
     /// This requires KPPA authorization.
-    pub async fn reset_historical_data(&mut self) -> Result<()> {
-        Ok(self
-            .ctx
+    pub async fn reset_historical_data(ctx: &mut tokio_modbus::client::Context) -> Result<()> {
+        Ok(ctx
             .write_multiple_registers(
                 proto::ResetHistoricalData::ADDRESS,
                 &proto::ResetHistoricalData::encode_for_write_registers(),
@@ -132,18 +140,21 @@ impl SDM72 {
     ///   process a request before they are ready to accept the next one. A
     ///   typical value is 100 milliseconds, but this may vary depending on the
     ///   device and network conditions.
-    pub async fn read_all_settings(&mut self, delay: &std::time::Duration) -> Result<AllSettings> {
+    pub async fn read_all_settings(
+        ctx: &mut tokio_modbus::client::Context,
+        delay: &std::time::Duration,
+    ) -> Result<AllSettings> {
         let offset1 = proto::SystemType::ADDRESS;
         let quantity =
             { proto::PulseEnergyType::ADDRESS - offset1 + proto::PulseEnergyType::QUANTITY };
-        let rsp1 = self.ctx.read_holding_registers(offset1, quantity).await??;
+        let rsp1 = ctx.read_holding_registers(offset1, quantity).await??;
 
         tokio::time::sleep(*delay).await;
-        let serial_number = self.serial_number().await?;
+        let serial_number = Self::serial_number(ctx).await?;
         tokio::time::sleep(*delay).await;
-        let meter_code = self.meter_code().await?;
+        let meter_code = Self::meter_code(ctx).await?;
         tokio::time::sleep(*delay).await;
-        let software_version = self.software_version().await?;
+        let software_version = Self::software_version(ctx).await?;
 
         Ok(AllSettings {
             system_type: crate::decode_subset_item_from_holding_register!(
@@ -217,24 +228,27 @@ impl SDM72 {
     ///   process a request before they are ready to accept the next one. A
     ///   typical value is 100 milliseconds, but this may vary depending on the
     ///   device and network conditions.
-    pub async fn read_all(&mut self, delay: &std::time::Duration) -> Result<AllValues> {
+    pub async fn read_all(
+        ctx: &mut tokio_modbus::client::Context,
+        delay: &std::time::Duration,
+    ) -> Result<AllValues> {
         let offset1 = proto::L1Voltage::ADDRESS;
         let quantity =
             { proto::ExportEnergyActive::ADDRESS - offset1 + proto::ExportEnergyActive::QUANTITY };
-        let rsp1 = self.ctx.read_input_registers(offset1, quantity).await??;
+        let rsp1 = ctx.read_input_registers(offset1, quantity).await??;
 
         tokio::time::sleep(*delay).await;
 
         let offset2 = proto::L1ToL2Voltage::ADDRESS;
         let quantity =
             { proto::NeutralCurrent::ADDRESS - offset2 + proto::NeutralCurrent::QUANTITY };
-        let rsp2 = self.ctx.read_input_registers(offset2, quantity).await??;
+        let rsp2 = ctx.read_input_registers(offset2, quantity).await??;
 
         tokio::time::sleep(*delay).await;
 
         let offset3 = proto::TotalEnergyActive::ADDRESS;
         let quantity = { proto::NetKwh::ADDRESS - offset3 + proto::NetKwh::QUANTITY };
-        let rsp3 = self.ctx.read_input_registers(offset3, quantity).await??;
+        let rsp3 = ctx.read_input_registers(offset3, quantity).await??;
 
         tokio::time::sleep(*delay).await;
 
@@ -243,7 +257,7 @@ impl SDM72 {
             proto::ExportTotalPowerActive::ADDRESS - offset4
                 + proto::ExportTotalPowerActive::QUANTITY
         };
-        let rsp4 = self.ctx.read_input_registers(offset4, quantity).await??;
+        let rsp4 = ctx.read_input_registers(offset4, quantity).await??;
 
         Ok(AllValues {
             l1_voltage: crate::decode_subset_item_from_input_register!(
