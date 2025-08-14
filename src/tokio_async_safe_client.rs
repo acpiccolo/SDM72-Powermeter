@@ -68,20 +68,30 @@ macro_rules! write_holding {
 }
 
 impl SafeClient {
-    /// Constructs a new `SafeClient` with the given `tokio-modbus` context.
+    /// Creates a new `SafeClient` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx`: An asynchronous Modbus client context, already connected.
     pub fn new(ctx: Context) -> Self {
         Self {
             ctx: Arc::new(Mutex::new(ctx)),
         }
     }
 
-    /// Constructs a new `SafeClient` from a shared context.
-    pub fn from_shared_context(ctx: Arc<Mutex<Context>>) -> Self {
+    /// Creates a new `SafeClient` from an existing `Arc<Mutex<Context>>`.
+    ///
+    /// This allows multiple `SafeClient` instances to share the exact same
+    /// underlying connection context.
+    pub fn from_shared(ctx: Arc<Mutex<Context>>) -> Self {
         Self { ctx }
     }
 
-    /// Returns a clone of the shared context.
-    pub fn shared_context(&self) -> Arc<Mutex<Context>> {
+    /// Clones and returns the underlying `Arc<Mutex<Context>>`.
+    ///
+    /// This allows the shared context to be used by other parts of an
+    /// application that may need direct access to the Modbus context.
+    pub fn clone_shared(&self) -> Arc<Mutex<Context>> {
         self.ctx.clone()
     }
 
