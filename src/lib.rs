@@ -64,22 +64,24 @@ pub mod protocol;
 ))]
 pub mod tokio_common;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-rtu-sync")))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-tcp-sync")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "tokio-rtu-sync", feature = "tokio-tcp-sync")))
+)]
 #[cfg(any(feature = "tokio-rtu-sync", feature = "tokio-tcp-sync"))]
 pub mod tokio_sync;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-rtu")))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-tcp")))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "tokio-rtu", feature = "tokio-tcp"))))]
 #[cfg(any(feature = "tokio-rtu", feature = "tokio-tcp"))]
 pub mod tokio_async;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-rtu-sync")))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-tcp-sync")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "tokio-rtu-sync", feature = "tokio-tcp-sync")))
+)]
 #[cfg(any(feature = "tokio-rtu-sync", feature = "tokio-tcp-sync"))]
 pub mod tokio_sync_safe_client;
 
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-rtu")))]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio-tcp")))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "tokio-rtu", feature = "tokio-tcp"))))]
 #[cfg(any(feature = "tokio-rtu", feature = "tokio-tcp"))]
 pub mod tokio_async_safe_client;
