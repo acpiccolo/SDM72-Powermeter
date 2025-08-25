@@ -125,11 +125,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Cargo Features
 | Feature | Purpose | Default |
 | :--- | :------ | :-----: |
+| `bin-dependencies` | Enable all features required by the binary | ✅ |
 | `tokio-rtu-sync` | Enable the implementation for the tokio modbus synchronous RTU client | - |
 | `tokio-rtu` | Enable the implementation for the tokio modbus asynchronous RTU client | - |
 | `tokio-tcp-sync` | Enable the implementation for the tokio modbus synchronous TCP client | - |
 | `tokio-tcp` | Enable the implementation for the tokio modbus asynchronous TCP client | - |
-| `bin-dependencies` | Enable all features required by the binary | ✅ |
+| `safe-client-sync` | Enable the implementation for the stateful thread-safe synchronous client | - |
+| `safe-client-async` | Enable the implementation for the stateful thread-safe asynchronous client | - |
+| `serde` | Enable the serde framework for protocol structures | - |
 
 ## License
 Licensed under either of

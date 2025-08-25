@@ -18,6 +18,7 @@ required-features = ["bin-dependencies"]
 [features]
 default = ["bin-dependencies"]
 bin-dependencies = [
+    "safe-client-sync",
     "tokio-rtu-sync",
     "tokio-tcp-sync",
     "serde",
@@ -52,6 +53,8 @@ tokio-tcp = [
     "dep:paste",
 ]
 serde = ["serde/derive"]
+safe-client-sync = []
+safe-client-async = []
 
 [dependencies]
 thiserror = "2"
