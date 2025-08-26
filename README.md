@@ -88,15 +88,20 @@ The `sdm72_lib` crate provides two main ways to interact with the SDM72 energy m
 
 2.  **Low-Level, Stateless Functions**: A set of stateless functions that directly map to the device's Modbus commands. This API offers maximum flexibility but requires manual management of the Modbus context. See the `tokio_sync` and `tokio_async` modules.
 
-### Features
-- **Protocol Implementation**: Complete implementation of the SDM72 Modbus protocol.
-- **Stateful, Thread-Safe Clients**: For easy and safe concurrent use.
-- **Stateless, Low-Level Functions**: For maximum flexibility and control.
-- **Synchronous and Asynchronous APIs**: Both blocking and `async/await` APIs are available.
-- **Strongly-Typed API**: Utilizes Rust's type system for protocol correctness.
+### Quick Start: Synchronous Client
 
-### Quick Start
-This example shows how to use the recommended high-level, synchronous `SafeClient`.
+Here's a quick example of how to use the synchronous `SafeClient` to read all values over a TCP connection.
+
+#### Dependencies
+
+First, add the required dependencies to your project:
+```sh
+cargo add SDM72@0.2 --no-default-features --features "tokio-tcp-sync,safe-client-sync,serde"
+cargo add tokio-modbus@0.16
+cargo add tokio@1 --features full
+```
+
+#### Example Usage
 
 ```rust
 use sdm72_lib::{
@@ -123,16 +128,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ## Cargo Features
-| Feature | Purpose | Default |
-| :--- | :------ | :-----: |
-| `bin-dependencies` | Enable all features required by the binary | ✅ |
-| `tokio-rtu-sync` | Enable the implementation for the tokio modbus synchronous RTU client | - |
-| `tokio-rtu` | Enable the implementation for the tokio modbus asynchronous RTU client | - |
-| `tokio-tcp-sync` | Enable the implementation for the tokio modbus synchronous TCP client | - |
-| `tokio-tcp` | Enable the implementation for the tokio modbus asynchronous TCP client | - |
-| `safe-client-sync` | Enable the implementation for the stateful thread-safe synchronous client | - |
-| `safe-client-async` | Enable the implementation for the stateful thread-safe asynchronous client | - |
-| `serde` | Enable the serde framework for protocol structures | - |
+
+This crate uses a feature-based system to minimize dependencies. When using it as a library, you should disable default features and select only the components you need.
+
+- **`default`**: Enables `bin-dependencies`, intended for compiling the `sdm72` command-line tool.
+
+### Client Features
+- **`tokio-rtu-sync`**: Synchronous (blocking) RTU client.
+- **`tokio-tcp-sync`**: Synchronous (blocking) TCP client.
+- **`tokio-rtu`**: Asynchronous (non-blocking) RTU client.
+- **`tokio-tcp`**: Asynchronous (non-blocking) TCP client.
+
+### High-Level Wrappers
+- **`safe-client-sync`**: A thread-safe, stateful wrapper for synchronous clients.
+- **`safe-client-async`**: A thread-safe, stateful wrapper for asynchronous clients.
+
+### Utility Features
+- **`serde`**: Implements `serde::Serialize` and `serde::Deserialize` for protocol structs.
+- **`bin-dependencies`**: All features required to build the `sdm72` binary.
 
 ## License
 Licensed under either of
