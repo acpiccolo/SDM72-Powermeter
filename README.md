@@ -10,6 +10,7 @@ This repository contains a Rust library and a command-line tool for interacting 
 
 ## Table of Contents
 - [Hardware Requirements](#hardware-requirements)
+- [Technical Documentation](#technical-documentation)
 - [Technical Specifications](#technical-specifications)
 - [Installation & Compilation](#installation--compilation)
 - [Command-Line Usage](#command-line-usage)
@@ -21,6 +22,10 @@ This repository contains a Rust library and a command-line tool for interacting 
 To use this tool, you need:
 - An **Eastron SDM72 series energy meter**.
 - A **USB-to-RS485 converter** (for RTU mode) or a **Modbus TCP gateway**.
+
+## Technical Documentation
+For more detailed information, please refer to the official datasheets available in the [`docs/`](./docs/) directory:
+- [`eastron_sdm72dmv2.pdf`](./docs/eastron_sdm72dmv2.pdf)
 
 ## Technical Specifications
 | Feature | Details |
