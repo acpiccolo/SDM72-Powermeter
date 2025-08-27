@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.1.0...v0.2.0) - 2025-08-27
+
+### Other
+
+- improve documentation and API ([#23](https://github.com/acpiccolo/SDM72-Powermeter/pull/23))
+- Merge pull request #22 from acpiccolo/dependabot/cargo/dialoguer-0.12
+- *(deps)* update dialoguer requirement from 0.11 to 0.12
+- *(deps)* bump crate-ci/typos from 1.34.0 to 1.35.3
+- fix feature dependencies
+- refactored the code for better clarity and maintainability
+- fix clippy issues
+- release v0.1.0
+
 ## [0.1.0](https://github.com/acpiccolo/SDM72-Powermeter/releases/tag/v0.1.0) - 2025-08-05
 
 ### Other
