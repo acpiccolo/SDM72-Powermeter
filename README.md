@@ -4,57 +4,153 @@
 [![CI](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/acpiccolo/SDM72-Powermeter/blob/main/LICENSE-APACHE)
 [![CI](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
-# SDM72 three phase four wire energy meter
-This RUST project can read and write a SDM72 energy meter from the command line.
+# SDM72 Modbus Library and Tool
 
-## Hardware
-The following hardware is required for this project:
-* One or more SDM72 energy meter.
-* One USB-RS485 converter.
+This repository contains a Rust library and a command-line tool for interacting with Eastron SDM72 series energy meters via the Modbus protocol.
 
-### Data sheet SDM72 energy meter
-* maximum 100 Ampere
-* Two wire types: 3 phase with 4 wire or 1 phase with 2 wire
-* RS485 Modbus RTU output
-* Pulse Output
-* Bi-directional measurement (import & export)
+## Table of Contents
+- [Hardware Requirements](#hardware-requirements)
+- [Technical Documentation](#technical-documentation)
+- [Technical Specifications](#technical-specifications)
+- [Installation & Compilation](#installation--compilation)
+- [Command-Line Usage](#command-line-usage)
+- [Library Usage](#library-usage)
+- [Cargo Features](#cargo-features)
+- [License](#license)
 
+## Hardware Requirements
+To use this tool, you need:
+- An **Eastron SDM72 series energy meter**.
+- A **USB-to-RS485 converter** (for RTU mode) or a **Modbus TCP gateway**.
 
-## Compilation
-1. Install Rust e.g. using [these instructions](https://www.rust-lang.org/learn/get-started).
-2. Ensure that you have a C compiler and linker.
-3. Clone `git clone https://github.com/acpiccolo/SDM72-Powermeter.git`
-4. Run `cargo install --path .` to install the binary. Alternatively,
-   check out the repository and run `cargo build --release`. This will compile
-   the binary to `target/release/sdm72`.
+## Technical Documentation
+For more detailed information, please refer to the official datasheets available in the [`docs/`](./docs/) directory:
+- [`eastron_sdm72dmv2.pdf`](./docs/eastron_sdm72dmv2.pdf)
 
-## Getting started
-To see all available commands:
-```
+## Technical Specifications
+| Feature | Details |
+|---|---|
+| **Nominal Voltage** | 230/400V AC (3~) |
+| **Operational Voltage** | 80%~120% of nominal voltage |
+| **Current Measurement** | Up to 100A direct connection |
+| **Communication Protocol** | Modbus RTU/TCP |
+| **Baud Rates** | 2400, 4800, 9600, 19200, 38400 |
+| **Data Format** | N, 8, 1 (No parity, 8 data bits, 1 stop bit) |
+
+## Installation & Compilation
+
+### Prerequisites
+Ensure you have the following dependencies installed before proceeding:
+- **Rust and Cargo**: Install via [rustup](https://rustup.rs/)
+- **Git**: To clone the repository
+- A C compiler and linker
+
+### Building from Source
+1. **Clone the repository**:
+   ```sh
+   git clone https://github.com/acpiccolo/SDM72-Powermeter.git
+   cd SDM72-Powermeter
+   ```
+2. **Compile the project**:
+   ```sh
+   cargo build --release
+   ```
+   The compiled binary will be available at:
+   ```sh
+   target/release/sdm72
+   ```
+3. **(Optional) Install the binary system-wide**:
+   ```sh
+   cargo install --path .
+   ```
+   This installs `sdm72` to `$HOME/.cargo/bin`, making it accessible from anywhere.
+
+## Command-Line Usage
+### View Available Commands
+To list all available commands and their options, run:
+```sh
 sdm72 --help
 ```
-For RTU Modbus connected sdm72 energy meter:
-```
+### Read All Values
+For **RTU Modbus (RS485) connected** devices:
+```sh
 sdm72 rtu --address 1 --baudrate 9600 read-all
 ```
-For TCP Modbus connected sdm72 energy meter:
-```
+For **TCP Modbus connected** devices:
+```sh
 sdm72 tcp 192.168.0.222:502 read-all
 ```
-You can even use this tool as a daemon for a MQTT broker, the connection is configured via the `mqtt.yaml` file:
-```
+### Daemon Mode with MQTT
+You can also run the tool as a daemon that publishes data to an MQTT broker. The connection is configured via an `mqtt.yaml` file.
+```sh
 sdm72 rtu --address 1 --baudrate 9600 daemon mqtt
 ```
 
-### Cargo Features
-| Feature | Purpose | Default |
-| :--- | :------ | :-----: |
-| `tokio-rtu-sync` | Enable the implementation for the tokio modbus synchronous RTU client | ✅ |
-| `tokio-rtu` | Enable the implementation for the tokio modbus asynchronous RTU client | ✅ |
-| `tokio-tcp-sync` | Enable the implementation for the tokio modbus synchronous TCP client | - |
-| `tokio-tcp` | Enable the implementation for the tokio modbus asynchronous TCP client | - |
-| `bin-dependencies` | Enable all features required by the binary | ✅ |
+## Library Usage
+The `sdm72_lib` crate provides two main ways to interact with the SDM72 energy meters:
 
+1.  **High-Level, Safe Clients**: Stateful, thread-safe clients that are easy to share and use in concurrent applications. This is the recommended approach for most users. See `tokio_sync_safe_client::SafeClient` (blocking) and `tokio_async_safe_client::SafeClient` (`async`).
+
+2.  **Low-Level, Stateless Functions**: A set of stateless functions that directly map to the device's Modbus commands. This API offers maximum flexibility but requires manual management of the Modbus context. See the `tokio_sync` and `tokio_async` modules.
+
+### Quick Start: Synchronous Client
+
+Here's a quick example of how to use the synchronous `SafeClient` to read all values over a TCP connection.
+
+#### Dependencies
+
+First, add the required dependencies to your project:
+```sh
+cargo add SDM72@0.2 --no-default-features --features "tokio-tcp-sync,safe-client-sync,serde"
+cargo add tokio-modbus@0.16
+cargo add tokio@1 --features full
+```
+
+#### Example Usage
+
+```rust
+use sdm72_lib::{
+    protocol::Address,
+    tokio_sync_safe_client::SafeClient,
+};
+use tokio_modbus::client::sync::tcp;
+use tokio_modbus::Slave;
+use std::time::Duration;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to the device and create a stateful, safe client
+    let socket_addr = "192.168.1.100:502".parse()?;
+    let ctx = tcp::connect_slave(socket_addr, Slave(*Address::default()))?;
+    let mut client = SafeClient::new(ctx);
+
+    // Use the client to interact with the device
+    let values = client.read_all(&Duration::from_millis(100))?;
+
+    println!("Successfully read values: {:#?}", values);
+
+    Ok(())
+}
+```
+
+## Cargo Features
+
+This crate uses a feature-based system to minimize dependencies. When using it as a library, you should disable default features and select only the components you need.
+
+- **`default`**: Enables `bin-dependencies`, intended for compiling the `sdm72` command-line tool.
+
+### Client Features
+- **`tokio-rtu-sync`**: Synchronous (blocking) RTU client.
+- **`tokio-tcp-sync`**: Synchronous (blocking) TCP client.
+- **`tokio-rtu`**: Asynchronous (non-blocking) RTU client.
+- **`tokio-tcp`**: Asynchronous (non-blocking) TCP client.
+
+### High-Level Wrappers
+- **`safe-client-sync`**: A thread-safe, stateful wrapper for synchronous clients.
+- **`safe-client-async`**: A thread-safe, stateful wrapper for asynchronous clients.
+
+### Utility Features
+- **`serde`**: Implements `serde::Serialize` and `serde::Deserialize` for protocol structs.
+- **`bin-dependencies`**: All features required to build the `sdm72` binary.
 
 ## License
 Licensed under either of

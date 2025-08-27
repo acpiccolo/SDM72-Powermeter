@@ -10,15 +10,66 @@ use crate::protocol as proto;
 /// Represents all possible errors that can occur during Modbus communication.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// An error originating from the SDM72 protocol logic.
-    #[error("SDM72 error: {0}")]
-    SDM72Error(#[from] crate::Error),
-    /// An error from the underlying `tokio-modbus` library.
-    #[error("Modbus error: {0}")]
-    ModbusError(#[from] tokio_modbus::Error),
-    /// A Modbus exception response from the device.
-    #[error("Modbus exception: {0}")]
+    /// An error originating from the protocol logic, such as invalid data.
+    #[error(transparent)]
+    Protocol(#[from] proto::Error),
+
+    /// A Modbus exception response from the device (e.g., "Illegal Function").
+    #[error(transparent)]
     ModbusException(#[from] tokio_modbus::ExceptionCode),
+
+    /// A transport or communication error from the underlying `tokio-modbus` client.
+    #[error(transparent)]
+    Modbus(#[from] tokio_modbus::Error),
+}
+
+/// The result type for tokio operations.
+pub(crate) type Result<T> = std::result::Result<T, Error>;
+
+/// The number of data bits used for serial communication.
+pub const DATA_BITS: &tokio_serial::DataBits = &tokio_serial::DataBits::Eight;
+
+/// Creates and configures a `tokio_serial::SerialPortBuilder` for RTU communication.
+///
+/// This function sets up the standard communication parameters required by the
+/// SDM72 device: 8 data bits.
+///
+/// Note that this function only creates and configures the builder. It does not
+/// open the serial port, and therefore does not perform any I/O and cannot fail.
+/// The actual connection is established when this builder is used by a `tokio-modbus`
+/// client constructor.
+///
+/// # Arguments
+///
+/// * `device` - The path to the serial port device (e.g., `/dev/ttyUSB0` on Linux
+///   or `COM3` on Windows).
+/// * `baud_rate` - The baud rate for the serial communication.
+/// * `parity_and_stop_bits` - The parity and stop bit settings.
+pub fn serial_port_builder(
+    device: &str,
+    baud_rate: &proto::BaudRate,
+    parity_and_stop_bits: &proto::ParityAndStopBit,
+) -> tokio_serial::SerialPortBuilder {
+    let (parity, stop_bits) = match parity_and_stop_bits {
+        proto::ParityAndStopBit::NoParityOneStopBit => {
+            (tokio_serial::Parity::None, tokio_serial::StopBits::One)
+        }
+        proto::ParityAndStopBit::EvenParityOneStopBit => {
+            (tokio_serial::Parity::Even, tokio_serial::StopBits::One)
+        }
+        proto::ParityAndStopBit::OddParityOneStopBit => {
+            (tokio_serial::Parity::Odd, tokio_serial::StopBits::One)
+        }
+        proto::ParityAndStopBit::NoParityTwoStopBits => {
+            (tokio_serial::Parity::None, tokio_serial::StopBits::Two)
+        }
+    };
+    tokio_serial::new(device, u16::from(baud_rate) as u32)
+        .parity(parity)
+        .stop_bits(stop_bits)
+        .data_bits(*DATA_BITS)
+        // .timeout(timeout) // Do not work, set it to the context
+        .flow_control(tokio_serial::FlowControl::None)
 }
 
 /// A struct containing all the settings of the SDM72 meter.
