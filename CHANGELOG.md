@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.2.0...v0.2.1) - 2025-08-28
+
+### Other
+
+- Enable doc_cfg feature for docs.rs builds
+
 ## [0.2.0](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.1.0...v0.2.0) - 2025-08-27
 
 ### Other
