@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! A library for controlling the SDM72 series energy meters via Modbus.
 //!
 //! This crate provides two main ways to interact with the SDM72 energy meters:
