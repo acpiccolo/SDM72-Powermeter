@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.2.2...v0.2.3) - 2025-11-03
+
+### Other
+
+- *(deps)* bump crate-ci/typos from 1.38.1 to 1.39.0
+- *(deps)* update tokio-modbus requirement from 0.16 to 0.17
+
 ## [0.2.2](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.2.1...v0.2.2) - 2025-10-20
 
 ### Other
