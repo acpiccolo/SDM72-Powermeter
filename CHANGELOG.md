@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.2.3...v0.2.4) - 2026-07-06
+
+### Other
+
+- *(deps)* bump crate-ci/typos from 1.47.2 to 1.48.0
+- *(deps)* bump actions/checkout from 6 to 7
+- *(deps)* bump crate-ci/typos from 1.47.0 to 1.47.2
+- *(deps)* bump crate-ci/typos from 1.46.3 to 1.47.0
+- *(deps)* bump crate-ci/typos from 1.46.2 to 1.46.3
+- *(deps)* bump crate-ci/typos from 1.46.1 to 1.46.2
+- *(deps)* bump crate-ci/typos from 1.46.0 to 1.46.1
+- *(deps)* bump crate-ci/typos from 1.45.1 to 1.46.0
+
 ## [0.2.3](https://github.com/acpiccolo/SDM72-Powermeter/compare/v0.2.2...v0.2.3) - 2026-04-20
 
 ### Other
