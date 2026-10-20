@@ -90,20 +90,20 @@ You can also run the tool as a daemon that publishes data to an MQTT broker.
 
 - **Publish to MQTT:**
   ```sh
-  sdm72 rtu --address 1 daemon mqtt --config-file /path/to/mqtt.yaml
+  sdm72 rtu --address 1 daemon mqtt --mqtt-config /path/to/mqtt.yaml
   ```
-  If `--config-file` is omitted, `mqtt.yaml` is loaded from the current directory.
+  If `--mqtt-config` is omitted, `mqtt.yaml` is loaded from the current directory.
 
 ### MQTT Configuration (mqtt.yaml & Environment Variables)
 
 All MQTT connection parameters are configured through a YAML file. This approach centralizes settings like the broker URL, credentials, topic, QoS, and client ID.
 
 **Path Specification:**
-- Use the `--config-file <PATH>` option to specify the path to your MQTT configuration file. For example:
+- Use the `--mqtt-config <PATH>` option to specify the path to your MQTT configuration file. For example:
   ```sh
-  sdm72 rtu --address 1 daemon mqtt --config-file /path/to/your/mqtt.yaml
+  sdm72 rtu --address 1 daemon mqtt --mqtt-config /path/to/your/mqtt.yaml
   ```
-- If the `--config-file <PATH>` option is **not** provided, the application will attempt to load `mqtt.yaml` from the current working directory.
+- If the `--mqtt-config <PATH>` option is **not** provided, the application will attempt to load `mqtt.yaml` from the current working directory.
 
 If the specified configuration file (either via option or the default `mqtt.yaml`) is not found, cannot be read, or is improperly formatted, the program will exit with an error.
 

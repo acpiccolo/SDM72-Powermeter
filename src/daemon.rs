@@ -18,8 +18,8 @@ pub fn run(
     no_json: bool,
 ) -> Result<()> {
     let mqtt_publisher = match &output {
-        commandline::DaemonOutput::Mqtt { config_file } => {
-            Some(mqtt::MqttPublisher::new(config_file)?)
+        commandline::DaemonOutput::Mqtt { mqtt_config } => {
+            Some(mqtt::MqttPublisher::new(mqtt_config)?)
         }
         commandline::DaemonOutput::Console => None,
     };
