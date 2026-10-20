@@ -77,8 +77,26 @@ impl MqttConfig {
         log::debug!("Loading config file from {config_file_path:?}");
         let config_file = std::fs::File::open(config_file_path)
             .with_context(|| format!("Cannot open MQTT config file {config_file_path:?}"))?;
-        let config: Self = serde_yaml::from_reader(&config_file)
+        let mut config: Self = yaml_serde::from_reader(&config_file)
             .with_context(|| format!("Cannot read MQTT config from file: {config_file_path:?}"))?;
+
+        // Override settings with environment variables if set
+        if let Ok(env_uri) = std::env::var("MQTT_URI") {
+            config.uri = env_uri;
+        }
+        if let Ok(env_user) = std::env::var("MQTT_USERNAME") {
+            config.username = Some(env_user);
+        }
+        if let Ok(env_pass) = std::env::var("MQTT_PASSWORD") {
+            config.password = Some(env_pass);
+        }
+        if let Ok(env_topic) = std::env::var("MQTT_TOPIC") {
+            config.topic = env_topic;
+        }
+        if let Ok(env_client_id) = std::env::var("MQTT_CLIENT_ID") {
+            config.client_id = env_client_id;
+        }
+
         Ok(config)
     }
 
@@ -125,29 +143,37 @@ impl MqttConfig {
     }
 }
 
-pub fn run_mqtt_daemon(
-    client: &mut sdm72_lib::tokio_sync_safe_client::SafeClient,
-    delay: &Duration,
-    poll_interval: &Duration,
-    config_file: &str,
-    no_json: bool,
-) -> Result<()> {
-    let config = MqttConfig::load(config_file)?;
-    let cli = config.create_client()?;
+pub struct MqttPublisher {
+    client: Client,
+    topic: String,
+    qos: i32,
+}
 
-    loop {
-        let values = client
-            .read_all(delay)
-            .with_context(|| "Cannot read all values")?;
+impl MqttPublisher {
+    pub fn new(config_file: &str) -> Result<Self> {
+        let config = MqttConfig::load(config_file)?;
+        let client = config.create_client()?;
+        Ok(Self {
+            client,
+            topic: config.topic,
+            qos: config.qos,
+        })
+    }
 
+    pub fn publish_values(
+        &self,
+        values: &sdm72_lib::tokio_common::AllValues,
+        no_json: bool,
+    ) -> Result<()> {
         macro_rules! pub_msg {
             ($label:expr, $val:expr) => {
-                cli.publish(paho_mqtt::Message::new(
-                    format!("{}/{}", config.topic, $label),
-                    $val.to_string(),
-                    config.qos as i32,
-                ))
-                .with_context(|| "Cannot publish MQTT message")?;
+                self.client
+                    .publish(paho_mqtt::Message::new(
+                        format!("{}/{}", self.topic, $label),
+                        $val.to_string(),
+                        self.qos,
+                    ))
+                    .with_context(|| "Cannot publish MQTT message")?;
             };
         }
 
@@ -216,12 +242,14 @@ pub fn run_mqtt_daemon(
         );
 
         if !no_json {
-            let payload = serde_json::to_string(&values)?;
+            let payload = serde_json::to_string(values)?;
             let msg =
-                paho_mqtt::Message::new(format!("{}/JSON", config.topic), payload, config.qos);
-            cli.publish(msg)
+                paho_mqtt::Message::new(format!("{}/JSON", self.topic), payload, self.qos);
+            self.client
+                .publish(msg)
                 .with_context(|| "Cannot publish MQTT message")?;
         }
-        std::thread::sleep(*delay.max(poll_interval));
+
+        Ok(())
     }
 }
