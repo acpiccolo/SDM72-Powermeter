@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
-use log::{info, warn};
+use anyhow::Result;
+use log::{error, info, warn};
 use sdm72_lib::tokio_sync_safe_client::SafeClient;
 use std::{
     sync::{Arc, Condvar, Mutex},
@@ -41,22 +41,27 @@ pub fn run(
     let mut shutdown = lock.lock().unwrap();
 
     while !*shutdown {
-        let values = client
-            .read_all(&interval)
-            .with_context(|| "Cannot read all values")?;
-
-        match &output {
-            commandline::DaemonOutput::Console => {
-                if no_json {
-                    println!("{values}");
-                } else {
-                    println!("{}", serde_json::to_string_pretty(&values)?);
+        match client.read_all(&interval) {
+            Ok(values) => match &output {
+                commandline::DaemonOutput::Console => {
+                    if no_json {
+                        println!("{values}");
+                    } else if let Ok(json) = serde_json::to_string_pretty(&values) {
+                        println!("{json}");
+                    } else {
+                        error!("Failed to serialize values to JSON");
+                    }
                 }
-            }
-            commandline::DaemonOutput::Mqtt { .. } => {
-                if let Some(publisher) = &mqtt_publisher {
-                    publisher.publish_values(&values, no_json)?;
+                commandline::DaemonOutput::Mqtt { .. } => {
+                    if let Some(publisher) = &mqtt_publisher {
+                        if let Err(e) = publisher.publish_values(&values, no_json) {
+                            error!("Failed to publish values to MQTT: {e}");
+                        }
+                    }
                 }
+            },
+            Err(e) => {
+                error!("Error reading values from device: {e}");
             }
         }
 

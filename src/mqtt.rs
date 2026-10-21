@@ -155,10 +155,33 @@ impl MqttConfig {
             self.client_id
         );
 
-        client
-            .connect(conn_opts)
-            .with_context(|| "Failed to connect to MQTT broker")?;
-        log::info!("Connected to MQTT broker.");
+        let max_retries = 5;
+        let mut retry_count = 0;
+        let retry_delay = Duration::from_secs(2);
+
+        loop {
+            match client.connect(conn_opts.clone()) {
+                Ok(_) => {
+                    log::info!("Connected to MQTT broker.");
+                    break;
+                }
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        return Err(e).with_context(|| {
+                            format!(
+                                "Failed to connect to MQTT broker after {max_retries} attempts"
+                            )
+                        });
+                    }
+                    log::warn!(
+                        "Failed to connect to MQTT broker ({e}). Retrying in {retry_delay:?} ({retry_count}/{max_retries})..."
+                    );
+                    std::thread::sleep(retry_delay);
+                }
+            }
+        }
+
         Ok(client)
     }
 }
