@@ -43,7 +43,7 @@ impl fmt::Debug for MqttConfig {
             .field("username", &self.username)
             .field(
                 "password",
-                &self.password.as_ref().map(|_| "****"),
+                &self.password.as_ref().map(|_| "********"),
             )
             .field("topic", &self.topic)
             .field("qos", &self.qos)
