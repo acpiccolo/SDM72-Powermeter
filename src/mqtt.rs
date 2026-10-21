@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use paho_mqtt::{Client, ConnectOptionsBuilder, CreateOptionsBuilder};
 use serde::Deserialize;
-use std::{fmt, time::Duration};
+use std::{
+    fmt,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 
 #[derive(Deserialize, Clone)]
 pub struct MqttConfig {
@@ -191,6 +195,7 @@ pub struct MqttPublisher {
     client: Client,
     topic: String,
     qos: i32,
+    was_disconnected: AtomicBool,
 }
 
 impl MqttPublisher {
@@ -201,6 +206,7 @@ impl MqttPublisher {
             client,
             topic: config.topic,
             qos: config.qos,
+            was_disconnected: AtomicBool::new(false),
         })
     }
 
@@ -210,8 +216,14 @@ impl MqttPublisher {
         no_json: bool,
     ) -> Result<()> {
         if !self.client.is_connected() {
-            log::warn!("MQTT broker is disconnected. Skipping publish until connection is restored.");
+            if !self.was_disconnected.swap(true, Ordering::SeqCst) {
+                log::warn!("MQTT connection lost! Automatic reconnect is active in the background...");
+            }
             return Ok(());
+        }
+
+        if self.was_disconnected.swap(false, Ordering::SeqCst) {
+            log::info!("MQTT connection re-established successfully.");
         }
 
         macro_rules! pub_msg {
