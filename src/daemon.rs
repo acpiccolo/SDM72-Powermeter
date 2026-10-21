@@ -38,9 +38,15 @@ pub fn run(
     }
 
     let (lock, cvar) = &*shutdown_pair;
-    let mut shutdown = lock.lock().unwrap();
 
-    while !*shutdown {
+    loop {
+        {
+            let shutdown = lock.lock().unwrap();
+            if *shutdown {
+                break;
+            }
+        }
+
         match client.read_all(&interval) {
             Ok(values) => match &output {
                 commandline::DaemonOutput::Console => {
@@ -65,12 +71,12 @@ pub fn run(
             }
         }
 
+        let shutdown = lock.lock().unwrap();
         if *shutdown {
             break;
         }
 
-        let result = cvar.wait_timeout(shutdown, interval).unwrap();
-        shutdown = result.0;
+        let _result = cvar.wait_timeout(shutdown, interval).unwrap();
     }
 
     if let Some(publisher) = &mqtt_publisher {

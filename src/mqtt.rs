@@ -132,6 +132,7 @@ impl MqttConfig {
 
         client.set_timeout(self.operation_timeout);
 
+
         let mut conn_builder = ConnectOptionsBuilder::new();
         conn_builder
             .keep_alive_interval(self.keep_alive_interval)
@@ -208,6 +209,11 @@ impl MqttPublisher {
         values: &sdm72_lib::tokio_common::AllValues,
         no_json: bool,
     ) -> Result<()> {
+        if !self.client.is_connected() {
+            log::warn!("MQTT broker is disconnected. Skipping publish until connection is restored.");
+            return Ok(());
+        }
+
         macro_rules! pub_msg {
             ($label:expr, $val:expr) => {
                 self.client
