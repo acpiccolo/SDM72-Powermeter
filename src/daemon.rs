@@ -62,6 +62,12 @@ pub fn run(
         }
     }
 
+    if let Some(publisher) = &mqtt_publisher {
+        if let Err(e) = publisher.disconnect() {
+            warn!("Error disconnecting from MQTT broker: {e}");
+        }
+    }
+
     info!("Daemon stopped cleanly.");
     Ok(())
 }

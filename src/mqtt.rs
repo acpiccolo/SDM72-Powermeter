@@ -16,7 +16,6 @@ pub struct MqttConfig {
     client_id: String,
     #[serde(
         default = "MqttConfig::default_operation_timeout",
-        alias = "oparation_timeout",
         with = "humantime_serde"
     )]
     operation_timeout: Duration,
@@ -271,6 +270,17 @@ impl MqttPublisher {
                 .with_context(|| "Cannot publish MQTT message")?;
         }
 
+        Ok(())
+    }
+
+    pub fn disconnect(&self) -> Result<()> {
+        log::info!("Disconnecting from MQTT broker...");
+        if self.client.is_connected() {
+            self.client
+                .disconnect(None)
+                .with_context(|| "Failed to disconnect from MQTT broker")?;
+            log::info!("Disconnected from MQTT broker successfully.");
+        }
         Ok(())
     }
 }
