@@ -2,10 +2,7 @@ use anyhow::{Context, Result};
 use log::{info, warn};
 use sdm72_lib::tokio_sync_safe_client::SafeClient;
 use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{Arc, Condvar, Mutex},
     time::Duration,
 };
 
@@ -24,17 +21,26 @@ pub fn run(
         commandline::DaemonOutput::Console => None,
     };
 
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
+    let shutdown_pair = Arc::new((Mutex::new(false), Condvar::new()));
 
-    if let Err(e) = ctrlc::set_handler(move || {
-        info!("Received shutdown signal. Stopping daemon gracefully...");
-        r.store(false, Ordering::SeqCst);
+    if let Err(e) = ctrlc::set_handler({
+        let shutdown_pair = shutdown_pair.clone();
+        move || {
+            info!("Received shutdown signal. Stopping daemon gracefully...");
+            let (lock, cvar) = &*shutdown_pair;
+            if let Ok(mut shutdown) = lock.lock() {
+                *shutdown = true;
+                cvar.notify_all();
+            }
+        }
     }) {
         warn!("Failed to set Ctrl-C handler: {e}");
     }
 
-    while running.load(Ordering::SeqCst) {
+    let (lock, cvar) = &*shutdown_pair;
+    let mut shutdown = lock.lock().unwrap();
+
+    while !*shutdown {
         let values = client
             .read_all(&interval)
             .with_context(|| "Cannot read all values")?;
@@ -54,12 +60,12 @@ pub fn run(
             }
         }
 
-        let sleep_step = Duration::from_millis(100).min(interval);
-        let mut elapsed = Duration::ZERO;
-        while elapsed < interval && running.load(Ordering::SeqCst) {
-            std::thread::sleep(sleep_step);
-            elapsed += sleep_step;
+        if *shutdown {
+            break;
         }
+
+        let result = cvar.wait_timeout(shutdown, interval).unwrap();
+        shutdown = result.0;
     }
 
     if let Some(publisher) = &mqtt_publisher {
