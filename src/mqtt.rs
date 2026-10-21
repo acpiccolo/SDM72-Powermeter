@@ -273,14 +273,14 @@ impl MqttPublisher {
         Ok(())
     }
 
-    pub fn disconnect(&self) -> Result<()> {
-        log::info!("Disconnecting from MQTT broker...");
+    pub fn disconnect(&self) {
         if self.client.is_connected() {
-            self.client
-                .disconnect(None)
-                .with_context(|| "Failed to disconnect from MQTT broker")?;
-            log::info!("Disconnected from MQTT broker successfully.");
+            log::info!("Disconnecting from MQTT broker...");
+            if let Err(e) = self.client.disconnect(None) {
+                log::warn!("Failed to disconnect cleanly from MQTT broker: {e}");
+            } else {
+                log::info!("Disconnected cleanly from MQTT broker.");
+            }
         }
-        Ok(())
     }
 }
