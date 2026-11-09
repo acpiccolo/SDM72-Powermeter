@@ -77,7 +77,7 @@ pub enum DaemonOutput {
     Mqtt {
         /// The configuration file for the MQTT broker
         #[arg(long, default_value_t = MqttConfig::DEFAULT_CONFIG_FILE.to_string())]
-        config_file: String,
+        mqtt_config: String,
     },
 }
 

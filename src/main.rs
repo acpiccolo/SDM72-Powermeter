@@ -6,6 +6,7 @@ use sdm72_lib::{protocol as proto, tokio_sync_safe_client::SafeClient};
 use std::{ops::Deref, panic, time::Duration};
 
 mod commandline;
+mod daemon;
 mod mqtt;
 
 fn logging_init(loglevel: LevelFilter) -> LoggerHandle {
@@ -140,28 +141,10 @@ fn main() -> Result<()> {
     let mut client = SafeClient::new(ctx);
 
     match command {
-        commandline::Commands::Daemon { poll_iterval, mode } => match mode {
-            commandline::DaemonOutput::Console => loop {
-                let values = client
-                    .read_all(&delay)
-                    .with_context(|| "Cannot read all values")?;
-                if args.no_json {
-                    println!("{values}");
-                } else {
-                    println!("{}", serde_json::to_string_pretty(&values)?);
-                }
-                std::thread::sleep(delay.max(*poll_iterval));
-            },
-            commandline::DaemonOutput::Mqtt { config_file } => {
-                mqtt::run_mqtt_daemon(
-                    &mut client,
-                    &delay,
-                    poll_iterval,
-                    config_file,
-                    args.no_json,
-                )?;
-            }
-        },
+        commandline::Commands::Daemon { poll_iterval, mode } => {
+            let interval = delay.max(*poll_iterval);
+            daemon::run(&mut client, mode.clone(), interval, args.no_json)?;
+        }
         commandline::Commands::ReadAll => {
             let values = client
                 .read_all(&delay)
