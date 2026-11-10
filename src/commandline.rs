@@ -43,6 +43,10 @@ pub enum Connection {
         // TCP address (e.g. 192.168.0.222:502)
         address: String,
 
+        /// Modbus slave address from 1 to 247
+        #[arg(short, long, default_value_t = proto::Address::default(), value_parser = parse_address)]
+        slave: proto::Address,
+
         #[command(subcommand)]
         command: Commands,
     },
