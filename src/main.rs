@@ -105,13 +105,20 @@ fn main() -> Result<()> {
     let _log_handle = logging_init(args.verbose.log_level_filter());
 
     let (mut ctx, command) = match &args.connection {
-        commandline::Connection::Tcp { address, command } => {
+        commandline::Connection::Tcp {
+            address,
+            slave,
+            command,
+        } => {
             let socket_addr = address
                 .parse()
                 .with_context(|| format!("Cannot parse address {address}"))?;
-            trace!("Open TCP address {socket_addr}");
-            let ctx = tokio_modbus::client::sync::tcp::connect(socket_addr)
-                .with_context(|| format!("Cannot open {socket_addr:?}"))?;
+            trace!("Open TCP address {socket_addr} slave {slave}");
+            let ctx = tokio_modbus::client::sync::tcp::connect_slave(
+                socket_addr,
+                tokio_modbus::Slave(**slave),
+            )
+            .with_context(|| format!("Cannot open {socket_addr:?}"))?;
             (ctx, command)
         }
         commandline::Connection::Rtu {
@@ -291,5 +298,53 @@ mod tests {
         assert_eq!(minimum_rtu_delay(&proto::BaudRate::B4800).as_millis(), 8);
         assert_eq!(minimum_rtu_delay(&proto::BaudRate::B9600).as_millis(), 4);
         assert_eq!(minimum_rtu_delay(&proto::BaudRate::B19200).as_millis(), 2);
+    }
+
+    #[test]
+    fn tcp_slave_parsing() {
+        let args =
+            commandline::Args::try_parse_from(["sdm72", "tcp", "192.168.1.100:502", "read-all"])
+                .unwrap();
+        match args.connection {
+            commandline::Connection::Tcp { address, slave, .. } => {
+                assert_eq!(address, "192.168.1.100:502");
+                assert_eq!(*slave, *proto::Address::default());
+            }
+            _ => panic!("Expected Connection::Tcp"),
+        }
+
+        let args = commandline::Args::try_parse_from([
+            "sdm72",
+            "tcp",
+            "192.168.1.100:502",
+            "--slave",
+            "42",
+            "read-all",
+        ])
+        .unwrap();
+        match args.connection {
+            commandline::Connection::Tcp { address, slave, .. } => {
+                assert_eq!(address, "192.168.1.100:502");
+                assert_eq!(*slave, 42);
+            }
+            _ => panic!("Expected Connection::Tcp"),
+        }
+
+        let args = commandline::Args::try_parse_from([
+            "sdm72",
+            "tcp",
+            "192.168.1.100:502",
+            "-s",
+            "0x20",
+            "read-all",
+        ])
+        .unwrap();
+        match args.connection {
+            commandline::Connection::Tcp { address, slave, .. } => {
+                assert_eq!(address, "192.168.1.100:502");
+                assert_eq!(*slave, 32);
+            }
+            _ => panic!("Expected Connection::Tcp"),
+        }
     }
 }
