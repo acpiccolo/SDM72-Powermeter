@@ -48,7 +48,7 @@ pub struct SDM72;
 /// A macro to generate a function for reading a holding register.
 macro_rules! read_holding {
     ($func_name:expr, $ty:ident) => {
-        paste::item! {
+        pastey::item! {
             #[doc = "Reads the [`proto::" $ty "`] value from the Modbus holding register."]
             pub fn $func_name(ctx: &mut tokio_modbus::client::sync::Context) -> Result<proto::$ty> {
                 let rsp = ctx
@@ -62,7 +62,7 @@ macro_rules! read_holding {
 /// A macro to generate a function for writing a holding register.
 macro_rules! write_holding {
     ($func_name:expr, $ty:ident) => {
-        paste::item! {
+        pastey::item! {
             #[doc = "Writes the [`proto::" $ty "`] value to the Modbus holding register."]
             pub fn [< set_ $func_name >](ctx: &mut tokio_modbus::client::sync::Context, value: proto::$ty) -> Result<()> {
                 Ok(ctx.write_multiple_registers(

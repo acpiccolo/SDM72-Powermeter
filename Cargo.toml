@@ -38,20 +38,20 @@ bin-dependencies = [
     "dep:humantime-serde",
     "dep:ctrlc",
 ]
-tokio-rtu-sync = ["tokio-modbus/rtu-sync", "dep:tokio-serial", "dep:paste"]
-tokio-rtu = ["tokio/time", "tokio-modbus/rtu", "dep:tokio-serial", "dep:paste"]
+tokio-rtu-sync = ["tokio-modbus/rtu-sync", "dep:tokio-serial", "dep:pastey"]
+tokio-rtu = ["tokio/time", "tokio-modbus/rtu", "dep:tokio-serial", "dep:pastey"]
 tokio-tcp-sync = [
     "tokio/net",
     "tokio-modbus/tcp-sync",
     "dep:tokio-serial",
-    "dep:paste",
+    "dep:pastey",
 ]
 tokio-tcp = [
     "tokio/time",
     "tokio/net",
     "tokio-modbus/tcp",
     "dep:tokio-serial",
-    "dep:paste",
+    "dep:pastey",
 ]
 serde = ["serde/derive"]
 safe-client-sync = []
@@ -62,7 +62,7 @@ thiserror = "2"
 tokio-modbus = { version = "0.17", default-features = false, optional = true }
 tokio-serial = { version = "5", optional = true }
 tokio = { version = "1", default-features = false, optional = true }
-paste = { version = "1", optional = true }
+pastey = { version = "0.2", optional = true }
 # Requirements for bin
 anyhow = { version = "1", optional = true }
 log = { version = "0.4", optional = true }

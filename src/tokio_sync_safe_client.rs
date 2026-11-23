@@ -43,7 +43,7 @@ pub struct SafeClient {
 
 macro_rules! read_holding {
     ($func_name:ident, $ty:ident) => {
-        paste::item! {
+        pastey::item! {
             #[doc = "Reads the [`proto::" $ty "`] value from the Modbus holding register."]
             pub fn $func_name(&mut self) -> Result<proto::$ty> {
                 let mut ctx = self.ctx.lock().unwrap();
@@ -55,7 +55,7 @@ macro_rules! read_holding {
 
 macro_rules! write_holding {
     ($func_name:ident, $ty:ident) => {
-        paste::item! {
+        pastey::item! {
             #[doc = "Writes the [`proto::" $ty "`] value to the Modbus holding register."]
             pub fn [< set_ $func_name >](&mut self, value: proto::$ty) -> Result<()> {
                 let mut ctx = self.ctx.lock().unwrap();
